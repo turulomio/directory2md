@@ -131,3 +131,28 @@ def test_force_flag_re_converts(tmp_path: Path):
     stats = convert_directory(src, dst, force=True)
     assert stats.converted == 1
     assert stats.skipped == 0
+
+
+def test_convert_directory_progress_callback(tmp_path: Path):
+    src = tmp_path / "source"
+    dst = tmp_path / "dest"
+    src.mkdir()
+
+    (src / "f1.txt").write_text("Hello 1")
+    (src / "f2.txt").write_text("Hello 2")
+    (src / "f3.txt").write_text("Hello 3")
+
+    progress_events = []
+
+    def on_progress(current: int, total: int, filename: str):
+        progress_events.append((current, total, filename))
+
+    stats = convert_directory(src, dst, progress_callback=on_progress)
+    assert stats.total_scanned == 3
+    assert stats.converted == 3
+    assert len(progress_events) == 6  # start (0, 1, 2) and complete (1, 2, 3) for 3 files
+    # Check totals in callbacks
+    assert all(total == 3 for _, total, _ in progress_events)
+    # Check final event has current == 3
+    assert progress_events[-1][0] == 3
+

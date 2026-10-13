@@ -57,6 +57,7 @@ class DirectoryConverter:
         force: bool = False,
         verbose: bool = False,
         log_callback: Optional[Callable[[str], None]] = None,
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,
     ) -> None:
         """Initialize converter.
 
@@ -65,11 +66,13 @@ class DirectoryConverter:
             force: If True, always convert regardless of file age or existence.
             verbose: Enable verbose logging.
             log_callback: Optional callback receiving progress log messages.
+            progress_callback: Optional callback receiving (current, total, filename) for progress reporting.
         """
         self.max_age_days = max_age_days
         self.force = force
         self.verbose = verbose
         self.log_callback = log_callback or (lambda msg: None)
+        self.progress_callback = progress_callback
 
     def log(self, message: str) -> None:
         """Log message via callback and logger."""
@@ -157,7 +160,8 @@ class DirectoryConverter:
         dst_root.mkdir(parents=True, exist_ok=True)
         stats = ConversionStats()
 
-        # Walk through source directory
+        # Collect all files to process
+        files_to_process: List[Tuple[Path, Path]] = []
         for dirpath, dirnames, filenames in os.walk(src_root):
             rel_dir = Path(dirpath).relative_to(src_root)
             current_dst_dir = dst_root / rel_dir
@@ -166,14 +170,24 @@ class DirectoryConverter:
             for filename in filenames:
                 src_file = Path(dirpath) / filename
                 rel_file = rel_dir / filename if str(rel_dir) != "." else Path(filename)
-                stats.total_scanned += 1
+                files_to_process.append((src_file, rel_file))
 
-                try:
-                    self._process_file(src_file, rel_file, dst_root, stats)
-                except Exception as exc:
-                    err_msg = f"Failed processing '{src_file}': {exc}"
-                    logger.error(err_msg, exc_info=True)
-                    stats.errors.append((str(src_file), str(exc)))
+        total_files = len(files_to_process)
+
+        for idx, (src_file, rel_file) in enumerate(files_to_process, start=1):
+            if self.progress_callback:
+                self.progress_callback(idx - 1, total_files, str(rel_file))
+            stats.total_scanned += 1
+
+            try:
+                self._process_file(src_file, rel_file, dst_root, stats)
+            except Exception as exc:
+                err_msg = f"Failed processing '{src_file}': {exc}"
+                logger.error(err_msg, exc_info=True)
+                stats.errors.append((str(src_file), str(exc)))
+
+            if self.progress_callback:
+                self.progress_callback(idx, total_files, str(rel_file))
 
         return stats
 
@@ -558,6 +572,7 @@ def convert_directory(
     force: bool = False,
     verbose: bool = False,
     log_callback: Optional[Callable[[str], None]] = None,
+    progress_callback: Optional[Callable[[int, int, str], None]] = None,
 ) -> ConversionStats:
     """Convenience helper to convert a directory to markdown with default settings."""
     converter = DirectoryConverter(
@@ -565,5 +580,6 @@ def convert_directory(
         force=force,
         verbose=verbose,
         log_callback=log_callback,
+        progress_callback=progress_callback,
     )
     return converter.convert_directory(src_dir, dst_dir)

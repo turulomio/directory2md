@@ -68,3 +68,23 @@ def test_spreadsheet_parser_tsv(tmp_path: Path):
 
     assert "h1" in text
     assert "10" in text
+
+
+def test_pdf_parser_suppresses_warnings(tmp_path: Path):
+    import logging
+    from pypdf import PdfWriter
+    from directory2md.parsers.pdf_parser import PDFParser
+
+    # Create a minimal valid PDF
+    pdf_path = tmp_path / "sample.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=100, height=100)
+    with open(pdf_path, "wb") as f:
+        writer.write(f)
+
+    parser = PDFParser()
+    meta, text = parser.parse(pdf_path)
+    assert meta.filename == "sample.pdf"
+    # Ensure pypdf logger is at ERROR level (suppressing warnings)
+    assert logging.getLogger("pypdf").level == logging.ERROR
+

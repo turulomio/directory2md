@@ -8,11 +8,13 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "extract-msg>=0.56.1",
+    "fonttools>=4.66.1",
     "markdown-it-py>=4.2.0",
     "olefile>=0.47",
     "pypdf>=6.20.1",
     "python-docx>=1.2.0",
     "pyyaml>=6.0.3",
+    "tqdm>=4.70.1",
 ]
 
 [project.scripts]

@@ -5,8 +5,14 @@ Extracts text content page-by-page from Portable Document Format (.pdf) files.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Tuple
+import warnings
+
+# Suppress noisy pypdf fontTools and parser warning messages
+logging.getLogger("pypdf").setLevel(logging.ERROR)
+warnings.filterwarnings("ignore", module="pypdf")
 
 from directory2md.models import DocumentMetadata
 from directory2md.parsers.base import BaseParser
@@ -28,6 +34,7 @@ class PDFParser(BaseParser):
         text_parts = []
 
         try:
+            logging.getLogger("pypdf").setLevel(logging.ERROR)
             from pypdf import PdfReader
 
             reader = PdfReader(str(filepath))

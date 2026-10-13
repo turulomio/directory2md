@@ -63,7 +63,7 @@ uv run directory2md <source_directory> <destination_directory>
 ### Options
 
 ```text
-usage: directory2md [-h] [-d DAYS] [-f] [-v] [-q] source destination
+usage: directory2md [-h] [-d DAYS] [-f] [-v] [-q] [--no-progress] source destination
 
 Recursively convert a directory to Markdown with matching structure.
 
@@ -77,6 +77,7 @@ options:
   -f, --force      Force re-conversion of all files regardless of age
   -v, --verbose    Show detailed progress for each file
   -q, --quiet      Suppress informational output and show only errors
+  --no-progress    Disable interactive progress bar
 ```
 
 ### Examples
