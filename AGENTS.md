@@ -33,6 +33,8 @@ This document outlines the architecture, conventions, workflows, and lessons lea
      b) Destination file age exceeds `max_age_days` (default: 180 days).
      c) Source file modification timestamp (`src.mtime`) is newer than destination timestamp (`dst.mtime`).
      d) The `--force` flag is specified (optionally targeting a specific file or directory recursively).
+6. **Automatic Config Migration**:
+   - If an existing destination `directory2md.yaml` is missing keys (e.g. from an older version), it is automatically updated in-place upon execution. Existing settings, custom values, and comments are preserved.
 
 ---
 

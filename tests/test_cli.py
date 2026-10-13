@@ -101,4 +101,27 @@ def test_cli_force_targeted(tmp_path: Path, capsys):
     assert not (dst / "other.txt.md").exists()
 
 
+def test_cli_updates_old_config_keys(tmp_path: Path, capsys):
+    src = tmp_path / "source"
+    dst = tmp_path / "dest"
+    src.mkdir()
+    dst.mkdir()
+    (src / "doc.txt").write_text("content")
+
+    # Manually write an old config file missing ai and verbose keys
+    (dst / "directory2md.yaml").write_text("days: 120\nforce: false\n", encoding="utf-8")
+
+    code = main([str(src), str(dst), "--verbose"])
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "Updated keys:" in captured.out
+    assert "ai.language" in captured.out
+
+    # Config file should now contain the missing keys
+    config_content = (dst / "directory2md.yaml").read_text(encoding="utf-8")
+    assert "days: 120" in config_content
+    assert "language: \"es\"" in config_content
+
+
+
 

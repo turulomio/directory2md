@@ -53,7 +53,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     """Main CLI entrypoint."""
-    from directory2md.config import create_default_config_file, load_config
+    from directory2md.config import (
+        create_default_config_file,
+        load_config,
+        update_missing_config_keys,
+    )
 
     logging.getLogger("pypdf").setLevel(logging.ERROR)
     warnings.filterwarnings("ignore", module="pypdf")
@@ -91,7 +95,8 @@ def main(argv: list[str] | None = None) -> int:
         print("y vuelve a ejecutar directory2md.")
         return 0
 
-    config = load_config(config_file)
+    updated_keys = update_missing_config_keys(config_file)
+    config = load_config(config_file, update_if_missing=False)
     days = config.days
     force = args.force if args.force else config.force
     verbose = args.verbose or config.verbose
@@ -101,6 +106,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Source:      {src_dir.resolve()}")
         print(f"  Destination: {dst_dir.resolve()}")
         print(f"  Config:      {config_file.resolve()}")
+        if updated_keys:
+            print(f"  Updated keys:{', '.join(updated_keys)}")
         print(f"  Threshold:   {days} days")
         if force is True:
             print("  Mode:        FORCE (refreshing all files)")

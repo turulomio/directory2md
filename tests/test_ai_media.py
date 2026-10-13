@@ -37,6 +37,66 @@ def test_config_custom_language(tmp_path: Path):
     assert config.ai.language == "en"
 
 
+def test_update_missing_config_keys_in_old_config(tmp_path: Path):
+    from directory2md.config import update_missing_config_keys
+    import yaml
+
+    cfg_file = tmp_path / "directory2md.yaml"
+    # Older config missing language, audio_model, prompts, force, verbose
+    old_content = """# Old configuration file
+days: 90
+ai:
+  enabled: true
+  vision_model: "llama3.2-vision"
+"""
+    cfg_file.write_text(old_content, encoding="utf-8")
+
+    added = update_missing_config_keys(cfg_file)
+    assert "force" in added
+    assert "verbose" in added
+    assert "ai.language" in added
+    assert "ai.audio_model" in added
+
+    # Read updated file and verify values
+    updated_text = cfg_file.read_text(encoding="utf-8")
+    assert "# Old configuration file" in updated_text  # Comment preserved
+    assert "days: 90" in updated_text  # Custom value preserved
+    assert 'vision_model: "llama3.2-vision"' in updated_text  # Custom value preserved
+    assert 'language: "es"' in updated_text  # Default missing key added
+
+    # Load with load_config
+    config = load_config(cfg_file)
+    assert config.days == 90
+    assert config.force is False
+    assert config.verbose is False
+    assert config.ai.enabled is True
+    assert config.ai.language == "es"
+    assert config.ai.vision_model == "llama3.2-vision"
+
+    # Second run should detect no missing keys
+    assert update_missing_config_keys(cfg_file) == []
+
+
+def test_update_missing_config_keys_completely_missing_ai(tmp_path: Path):
+    from directory2md.config import update_missing_config_keys
+
+    cfg_file = tmp_path / "directory2md.yaml"
+    cfg_file.write_text("days: 45\nforce: true\n", encoding="utf-8")
+
+    added = update_missing_config_keys(cfg_file)
+    assert "verbose" in added
+    assert "ai.enabled" in added
+    assert "ai.language" in added
+
+    config = load_config(cfg_file)
+    assert config.days == 45
+    assert config.force is True
+    assert config.verbose is False
+    assert config.ai.language == "es"
+    assert config.ai.enabled is False
+
+
+
 
 def test_ia_frontmatter_attribute_default_false(tmp_path: Path):
     src = tmp_path / "src"
