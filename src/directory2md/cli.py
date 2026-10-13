@@ -85,6 +85,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: Source path '{src_dir}' is not a directory.", file=sys.stderr)
         return 1
 
+    src_resolved = src_dir.resolve()
+    dst_resolved = dst_dir.resolve()
+    if dst_resolved == src_resolved or dst_resolved.is_relative_to(src_resolved):
+        print(
+            f"Error: Destination directory '{dst_dir}' cannot be inside or the same as source directory '{src_dir}'.",
+            file=sys.stderr,
+        )
+        return 1
+
     if not args.quiet:
         print(f"Starting directory2md:")
         print(f"  Source:      {src_dir.resolve()}")

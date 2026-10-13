@@ -156,3 +156,19 @@ def test_convert_directory_progress_callback(tmp_path: Path):
     # Check final event has current == 3
     assert progress_events[-1][0] == 3
 
+
+def test_destination_inside_or_equal_to_source(tmp_path: Path):
+    src = tmp_path / "source"
+    src.mkdir()
+    (src / "doc.txt").write_text("content")
+
+    # 1. Destination is a subdirectory of source
+    dst_sub = src / "nested_dest"
+    with pytest.raises(ValueError, match="cannot be inside or the same"):
+        convert_directory(src, dst_sub)
+
+    # 2. Destination is the same as source
+    with pytest.raises(ValueError, match="cannot be inside or the same"):
+        convert_directory(src, src)
+
+

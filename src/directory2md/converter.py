@@ -157,6 +157,11 @@ class DirectoryConverter:
         if not src_root.exists() or not src_root.is_dir():
             raise ValueError(f"Source directory '{src_root}' does not exist or is not a directory.")
 
+        if dst_root == src_root or dst_root.is_relative_to(src_root):
+            raise ValueError(
+                f"Destination directory '{dst_root}' cannot be inside or the same as the source directory '{src_root}'."
+            )
+
         dst_root.mkdir(parents=True, exist_ok=True)
         stats = ConversionStats()
 

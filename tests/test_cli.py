@@ -61,3 +61,16 @@ def test_cli_no_progress_and_quiet(tmp_path: Path, capsys):
     assert captured.out == ""
     assert (dst_quiet / "test.txt.md").exists()
 
+
+def test_cli_destination_inside_source(tmp_path: Path, capsys):
+    src = tmp_path / "source"
+    src.mkdir()
+    dst_inside = src / "output"
+
+    code = main([str(src), str(dst_inside)])
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "Error: Destination directory" in captured.err
+    assert "cannot be inside or the same as source directory" in captured.err
+
+
