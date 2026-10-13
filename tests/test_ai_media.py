@@ -212,8 +212,15 @@ def test_audio_and_video_parsers(tmp_path: Path):
             assert "presentación técnica" in v_text
 
 
+def test_config_video_model_alias(tmp_path: Path):
+    cfg_file = tmp_path / "directory2md.yaml"
+    cfg_file.write_text("ai:\n  video_model: 'llama3.2-vision'\n", encoding="utf-8")
+    config = load_config(cfg_file)
+    assert config.ai.vision_model == "llama3.2-vision"
+
+
 def test_ai_language_prompt_and_whisper_args(tmp_path: Path):
-    ai_cfg = AIConfig(enabled=True, vision_model="llava", language="fr")
+    ai_cfg = AIConfig(enabled=True, vision_model="llava", language="fr", audio_model="medium")
 
     # 1. Test query_ollama_vision appends language instruction for non-verbatim prompts
     captured_payloads = []
@@ -245,7 +252,7 @@ def test_ai_language_prompt_and_whisper_args(tmp_path: Path):
         assert len(captured_payloads) == 3
         assert "Please respond in language: fr." in captured_payloads[2]["prompt"]
 
-    # 2. Test whisper gets --language argument and AudioParser passes ai_config
+    # 2. Test whisper gets --model and --language arguments
     dummy_audio = tmp_path / "test.mp3"
     dummy_audio.write_bytes(b"audio")
 
@@ -254,9 +261,10 @@ def test_ai_language_prompt_and_whisper_args(tmp_path: Path):
             transcribe_audio_whisper(dummy_audio, ai_config=ai_cfg)
             mock_run.assert_called_once()
             cmd = mock_run.call_args[0][0]
+            assert "--model" in cmd
+            assert cmd[cmd.index("--model") + 1] == "medium"
             assert "--language" in cmd
-            lang_idx = cmd.index("--language")
-            assert cmd[lang_idx + 1] == "fr"
+            assert cmd[cmd.index("--language") + 1] == "fr"
 
     # 3. AudioParser passes ai_config to transcribe_audio_whisper
     cfg = Config(ai=ai_cfg)

@@ -17,6 +17,11 @@ dependencies = [
     "tqdm>=4.70.1",
 ]
 
+[project.optional-dependencies]
+audio = [
+    "openai-whisper>=20231117",
+]
+
 [project.scripts]
 directory2md = "directory2md.cli:main"
 

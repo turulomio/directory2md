@@ -62,11 +62,12 @@ ai:
   language: "en"          # Language of AI results, summaries, and descriptions (e.g., "en", "es", "fr")
   ollama_url: "http://localhost:11434"  # Default Ollama endpoint (localhost:11434)
   
-  # Models (configure freely according to the models you have in Ollama)
-  # Examples for vision: "llava", "llama3.2-vision", "qwen2.5-vl", "minicpm-v"
-  # Examples for audio: "whisper"
+  # Models (configure according to the models you have in Ollama & Whisper)
+  # vision_model (or video_model) is used for image OCR/description and video keyframe analysis
+  # Examples for vision/video: "llava", "llama3.2-vision", "qwen2.5-vl", "minicpm-v"
+  # Examples for audio: "tiny", "base", "small", "medium", "large-v3"
   vision_model: ""        # e.g., "llava" or "llama3.2-vision"
-  audio_model: ""         # e.g., "whisper"
+  audio_model: ""         # e.g., "base" or "small" (or empty for default)
   
   # Custom prompts
   prompt_image_ocr: "Extract all readable text from this image verbatim. Do not add conversational filler."
@@ -108,7 +109,7 @@ AI_TEMPLATES = {
     "language": '  language: "en"          # Language of AI results, summaries, and descriptions (e.g., "en", "es", "fr")\n',
     "ollama_url": '  ollama_url: "http://localhost:11434"  # Default Ollama endpoint (localhost:11434)\n',
     "vision_model": '  vision_model: ""        # e.g., "llava" or "llama3.2-vision"\n',
-    "audio_model": '  audio_model: ""         # e.g., "whisper"\n',
+    "audio_model": '  audio_model: ""         # e.g., "base", "small", "medium" (or empty for default)\n',
     "prompt_image_ocr": '  prompt_image_ocr: "Extract all readable text from this image verbatim. Do not add conversational filler."\n',
     "prompt_image_description": '  prompt_image_description: "Provide a comprehensive and detailed description of the contents and context of this image."\n',
     "prompt_video_summary": '  prompt_video_summary: "Analyze these extracted video keyframes and summarize the scene, actions, and key visual information."\n',
@@ -280,7 +281,7 @@ def load_config(config_file: Path, update_if_missing: bool = True) -> Config:
             enabled=bool(ai_data.get("enabled", False)),
             language=str(ai_data.get("language", "en")),
             ollama_url=str(ai_data.get("ollama_url", "http://localhost:11434")),
-            vision_model=str(ai_data.get("vision_model", "")),
+            vision_model=str(ai_data.get("vision_model") or ai_data.get("video_model") or ""),
             audio_model=str(ai_data.get("audio_model", "")),
             prompt_image_ocr=str(ai_data.get("prompt_image_ocr", AIConfig.prompt_image_ocr)),
             prompt_image_description=str(ai_data.get("prompt_image_description", AIConfig.prompt_image_description)),

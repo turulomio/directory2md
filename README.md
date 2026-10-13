@@ -55,6 +55,9 @@ cd directory2md
 
 # Install dependencies and sync virtual environment with uv
 uv sync
+
+# Optional: install audio transcription dependencies (OpenAI Whisper)
+uv sync --extra audio
 ```
 
 ---
@@ -118,8 +121,15 @@ ai:
   enabled: false          # Enable AI processing (OCR, descriptions for images, audio, video)
   language: "en"          # Language of AI results, summaries, and descriptions (e.g., "en", "es", "fr")
   ollama_url: "http://localhost:11434"
-  vision_model: ""        # e.g., "llava" or "llama3.2-vision"
-  audio_model: ""         # e.g., "whisper"
+  
+  # Models
+  # vision_model (or video_model): Ollama model used for image OCR/description & video keyframe scene analysis
+  # Examples: "llava", "llama3.2-vision", "qwen2.5-vl", "minicpm-v"
+  vision_model: ""
+  
+  # audio_model: Whisper model size used for audio transcription
+  # Examples: "tiny", "base", "small", "medium", "large-v3" (leave "" for Whisper's default)
+  audio_model: ""
 ```
 
 ---

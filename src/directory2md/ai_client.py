@@ -184,6 +184,8 @@ def transcribe_audio_whisper(audio_path: Path, ai_config: Optional[AIConfig] = N
                 "--output_format",
                 "txt",
             ]
+            if ai_config and ai_config.audio_model:
+                cmd.extend(["--model", ai_config.audio_model])
             if ai_config and ai_config.language:
                 cmd.extend(["--language", ai_config.language])
 
