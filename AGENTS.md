@@ -23,6 +23,8 @@ This document outlines the architecture, conventions, workflows, and lessons lea
 5. **YAML Frontmatter Headers**:
    - Every generated `.directory2md.md` file includes frontmatter containing:
      - `ia`: Boolean (`true`/`false`) flag indicating whether the output was generated with AI.
+     - `ia_model`: Model name used for AI processing (e.g. `llama3.2-vision`, `whisper`) if `ia: true`.
+     - `ia_version`: Model version or tag used (e.g. `11b`, `medium`, `latest`) if `ia: true`.
      - `original_path`: Absolute path to original file.
      - `filename`: Base filename.
      - `file_size_bytes`: Original file size in bytes.

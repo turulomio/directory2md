@@ -57,6 +57,8 @@ class DocumentMetadata:
     origin_type: str = "file"
     email_headers: Optional[EmailHeaders] = None
     ia: bool = False
+    ia_model: Optional[str] = None
+    ia_version: Optional[str] = None
     ia_timeout: bool = False
     conversion_time: Optional[float] = None
 
@@ -74,6 +76,11 @@ class DocumentMetadata:
             "origin_type": self.origin_type,
             "ia": self.ia,
         }
+        if self.ia:
+            if self.ia_model:
+                res["ia_model"] = self.ia_model
+            if self.ia_version:
+                res["ia_version"] = self.ia_version
         if self.ia_timeout:
             res["ia_timeout"] = True
         if self.conversion_time is not None:

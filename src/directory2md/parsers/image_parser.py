@@ -9,7 +9,11 @@ import mimetypes
 from pathlib import Path
 from typing import Optional, Tuple
 
-from directory2md.ai_client import AITimeoutError, query_ollama_vision
+from directory2md.ai_client import (
+    AITimeoutError,
+    query_ollama_vision,
+    resolve_ai_model_and_version,
+)
 from directory2md.config import Config
 from directory2md.models import DocumentMetadata
 from directory2md.parsers.base import BaseParser
@@ -124,7 +128,12 @@ class ImageParser(BaseParser):
 
         metadata.ia = used_ai
 
-        if not used_ai:
+        if used_ai and self.config and self.config.ai.vision_model:
+            model_name, model_ver = resolve_ai_model_and_version(self.config.ai.vision_model)
+            metadata.ia_model = model_name
+            metadata.ia_version = model_ver
+            lines.insert(5, f"- **AI Model:** `{model_name}` (version: `{model_ver}`)")
+        elif not used_ai:
             lines.extend([
                 "> *Image analysis not available (Ollama vision model unavailable or AI disabled).* ",
                 "",

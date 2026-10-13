@@ -60,6 +60,40 @@ class AITimeoutError(AIError, TimeoutError):
     """Raised when an AI operation (Ollama or Whisper) exceeds its configured timeout."""
 
 
+def resolve_ai_model_and_version(model_spec: str, default_model: str = "") -> Tuple[str, str]:
+    """Parse a model specification into (model_name, version).
+
+    Args:
+        model_spec: Configured model string (e.g. 'llama3.2-vision:11b', 'llava', 'base').
+        default_model: Default model name if model_spec is just a size/tag (e.g. 'whisper').
+
+    Returns:
+        Tuple of (model_name, version).
+    """
+    spec = model_spec.strip()
+    if not spec:
+        return "", ""
+
+    if ":" in spec:
+        name, ver = spec.split(":", 1)
+        return name.strip(), ver.strip()
+
+    # Whisper model sizes
+    whisper_sizes = {"tiny", "base", "small", "medium", "large", "large-v1", "large-v2", "large-v3", "turbo"}
+    if default_model == "whisper":
+        lower = spec.lower()
+        if lower.startswith("whisper-"):
+            return "whisper", spec[8:].strip()
+        if lower == "whisper":
+            return "whisper", "base"
+        return "whisper", spec
+
+    if default_model and spec.lower() in whisper_sizes:
+        return default_model, spec
+
+    return spec, "latest"
+
+
 def query_ollama_vision(
     image_bytes: bytes,
     prompt: str,

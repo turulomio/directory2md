@@ -10,6 +10,7 @@ from directory2md.ai_client import (
     AIError,
     extract_video_keyframes,
     query_ollama_multiple_images,
+    resolve_ai_model_and_version,
     transcribe_audio_whisper,
 )
 from directory2md.config import Config
@@ -74,6 +75,13 @@ class AudioParser(BaseParser):
 
         if transcription:
             metadata.ia = True
+            if self.config and self.config.ai.audio_model:
+                model_name, model_ver = resolve_ai_model_and_version(
+                    self.config.ai.audio_model, default_model="whisper"
+                )
+                metadata.ia_model = model_name
+                metadata.ia_version = model_ver
+                lines.insert(5, f"- **AI Model:** `{model_name}` (version: `{model_ver}`)")
             lines.extend([
                 "## Audio Transcription",
                 "",
@@ -133,6 +141,11 @@ class VideoParser(BaseParser):
 
         if summary:
             metadata.ia = True
+            if self.config and self.config.ai.vision_model:
+                model_name, model_ver = resolve_ai_model_and_version(self.config.ai.vision_model)
+                metadata.ia_model = model_name
+                metadata.ia_version = model_ver
+                lines.insert(5, f"- **AI Model:** `{model_name}` (version: `{model_ver}`)")
             lines.extend([
                 "## AI Video Scene Analysis",
                 "",

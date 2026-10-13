@@ -392,5 +392,80 @@ def test_html_embedded_images_ai_container_conversion(tmp_path: Path):
     assert member.exists()
     member_text = member.read_text(encoding="utf-8")
     assert "ia: true" in member_text
+    assert "ia_model: llama3.2-vision" in member_text
+    assert "ia_version: latest" in member_text
+    assert "- **AI Model:** `llama3.2-vision` (version: `latest`)" in member_text
     assert "Gráfico de barras mostrando el crecimiento anual" in member_text
+
+
+def test_resolve_ai_model_and_version():
+    from directory2md.ai_client import resolve_ai_model_and_version
+
+    assert resolve_ai_model_and_version("llama3.2-vision:11b") == ("llama3.2-vision", "11b")
+    assert resolve_ai_model_and_version("llama3.2-vision") == ("llama3.2-vision", "latest")
+    assert resolve_ai_model_and_version("llava:7b") == ("llava", "7b")
+    assert resolve_ai_model_and_version("llava") == ("llava", "latest")
+    assert resolve_ai_model_and_version("base", default_model="whisper") == ("whisper", "base")
+    assert resolve_ai_model_and_version("medium", default_model="whisper") == ("whisper", "medium")
+    assert resolve_ai_model_and_version("whisper:large-v3") == ("whisper", "large-v3")
+    assert resolve_ai_model_and_version("whisper-turbo", default_model="whisper") == ("whisper", "turbo")
+    assert resolve_ai_model_and_version("") == ("", "")
+
+
+def test_ia_model_and_version_in_media_parsers(tmp_path: Path):
+    from directory2md.markdown_utils import serialize_document
+
+    cfg_image = Config(ai=AIConfig(enabled=True, vision_model="llama3.2-vision:11b"))
+    img_file = tmp_path / "sample.png"
+    img_file.write_bytes(b"\x89PNG\r\n\x1a\n...")
+
+    with patch("directory2md.parsers.image_parser.query_ollama_vision", return_value="Visual description text"):
+        img_parser = ImageParser(config=cfg_image)
+        meta, text = img_parser.parse(img_file)
+        assert meta.ia is True
+        assert meta.ia_model == "llama3.2-vision"
+        assert meta.ia_version == "11b"
+        assert "- **AI Model:** `llama3.2-vision` (version: `11b`)" in text
+
+        serialized = serialize_document(meta, text)
+        assert "ia: true" in serialized
+        assert "ia_model: llama3.2-vision" in serialized
+        assert "ia_version: 11b" in serialized
+
+    cfg_audio = Config(ai=AIConfig(enabled=True, audio_model="medium"))
+    audio_file = tmp_path / "sample.mp3"
+    audio_file.write_bytes(b"audio_bytes")
+
+    with patch("directory2md.parsers.media_parser.transcribe_audio_whisper", return_value="Audio speech text"):
+        aud_parser = AudioParser(config=cfg_audio)
+        a_meta, a_text = aud_parser.parse(audio_file)
+        assert a_meta.ia is True
+        assert a_meta.ia_model == "whisper"
+        assert a_meta.ia_version == "medium"
+        assert "- **AI Model:** `whisper` (version: `medium`)" in a_text
+
+        a_serialized = serialize_document(a_meta, a_text)
+        assert "ia: true" in a_serialized
+        assert "ia_model: whisper" in a_serialized
+        assert "ia_version: medium" in a_serialized
+
+    cfg_video = Config(ai=AIConfig(enabled=True, vision_model="llava:13b"))
+    video_file = tmp_path / "sample.mp4"
+    video_file.write_bytes(b"video_bytes")
+
+    with patch("shutil.which", return_value="/usr/bin/ffmpeg"):
+        with patch("directory2md.parsers.media_parser.extract_video_keyframes", return_value=[b"f1"]):
+            with patch("directory2md.parsers.media_parser.query_ollama_multiple_images", return_value="Video scene text"):
+                vid_parser = VideoParser(config=cfg_video)
+                v_meta, v_text = vid_parser.parse(video_file)
+                assert v_meta.ia is True
+                assert v_meta.ia_model == "llava"
+                assert v_meta.ia_version == "13b"
+                assert "- **AI Model:** `llava` (version: `13b`)" in v_text
+
+                v_serialized = serialize_document(v_meta, v_text)
+                assert "ia: true" in v_serialized
+                assert "ia_model: llava" in v_serialized
+                assert "ia_version: 13b" in v_serialized
+
 
