@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
 import logging
 from pathlib import Path
@@ -94,6 +95,97 @@ def resolve_ai_model_and_version(model_spec: str, default_model: str = "") -> Tu
     return spec, "latest"
 
 
+def prepare_image_for_vision(
+    image_bytes: bytes,
+    min_dimension: int = 5,
+    max_dimension: int = 2048,
+) -> Optional[bytes]:
+    """Prepare and normalize raw image bytes for Ollama vision models.
+
+    - Validates image dimensions (skips tiny/spacer images < min_dimension).
+    - Converts RGBA / CMYK / palette / greyscale images to clean RGB JPEG.
+    - Resizes excessively large images exceeding max_dimension to preserve memory and speed.
+    - Returns None if image is too small or empty.
+    - If Pillow cannot open (e.g. mock data or unrecognized format), returns original bytes.
+    """
+    if not image_bytes:
+        return None
+
+    try:
+        from PIL import Image
+
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            if img.width < min_dimension or img.height < min_dimension:
+                logger.debug(
+                    "Skipping tiny image (%dx%d) for vision model",
+                    img.width,
+                    img.height,
+                )
+                return None
+
+            # Resize if dimensions exceed max_dimension
+            orig_w, orig_h = img.size
+            if max(orig_w, orig_h) > max_dimension:
+                img = img.copy()
+                img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+
+            # Convert to RGB (handling alpha channel with white background)
+            if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                bg = Image.new("RGB", img.size, (255, 255, 255))
+                rgba_img = img.convert("RGBA")
+                bg.paste(rgba_img, mask=rgba_img.split()[3])
+                rgb_img = bg
+            elif img.mode != "RGB":
+                rgb_img = img.convert("RGB")
+            else:
+                rgb_img = img
+
+            buf = io.BytesIO()
+            rgb_img.save(buf, format="JPEG", quality=90)
+            return buf.getvalue()
+    except Exception as exc:
+        logger.debug("Image normalization skipped (PIL open failed): %s", exc)
+        return image_bytes
+
+
+def _format_ollama_http_error(exc: urllib.error.HTTPError, model_name: str) -> str:
+    """Extract detailed error message from Ollama HTTP response and add guidance."""
+    detail = ""
+    try:
+        raw_body = exc.read().decode("utf-8", errors="replace")
+        try:
+            body = json.loads(raw_body)
+            if isinstance(body, dict) and "error" in body:
+                detail = str(body["error"]).strip()
+            else:
+                detail = raw_body.strip()
+        except Exception:
+            detail = raw_body.strip()
+    except Exception:
+        pass
+
+    msg = f"HTTP Error {exc.code}: {exc.reason}"
+    if detail:
+        msg = f"{msg} - {detail}"
+
+    # Provide targeted hints for common Ollama configuration issues
+    lower_detail = detail.lower()
+    if exc.code == 400 and ("does not support images" in lower_detail or not detail):
+        msg += (
+            f"\n[HINT] The model '{model_name}' does not support images/vision in Ollama. "
+            "Please configure a multimodal vision model in directory2md.yaml under 'ai.vision_model' "
+            "(e.g., 'llama3.2-vision:11b', 'qwen2.5-vl:7b', 'llava:7b', or 'minicpm-v:8b'). "
+            "Alternatively, disable AI vision processing by setting 'ai.enabled: false'."
+        )
+    elif exc.code == 404:
+        msg += (
+            f"\n[HINT] The model '{model_name}' was not found in Ollama. "
+            f"You may need to pull it first using: 'ollama pull {model_name}'."
+        )
+
+    return msg
+
+
 def query_ollama_vision(
     image_bytes: bytes,
     prompt: str,
@@ -112,7 +204,12 @@ def query_ollama_vision(
     if not ai_config.enabled or not ai_config.vision_model:
         return None
 
-    b64_image = base64.b64encode(image_bytes).decode("ascii")
+    prepared_bytes = prepare_image_for_vision(image_bytes)
+    if prepared_bytes is None:
+        logger.debug("Image skipped for vision model (empty or too small)")
+        return None
+
+    b64_image = base64.b64encode(prepared_bytes).decode("ascii")
     endpoint = f"{ai_config.ollama_url.rstrip('/')}/api/generate"
 
     full_prompt = prompt
@@ -151,18 +248,61 @@ def query_ollama_vision(
                 body = json.loads(resp.read().decode("utf-8"))
                 return str(body.get("response", "")).strip()
             raise AIError(f"Ollama vision query returned HTTP {resp.status}")
+    except urllib.error.HTTPError as exc:
+        if exc.code == 504:
+            logger.warning(
+                "Ollama vision query timed out after %ds for model '%s'",
+                ai_config.timeout_seconds,
+                ai_config.vision_model,
+            )
+            raise AITimeoutError(
+                f"Ollama vision query timed out after {ai_config.timeout_seconds}s"
+            ) from exc
+        err_msg = _format_ollama_http_error(exc, ai_config.vision_model)
+        logger.warning(
+            "Ollama vision query failed for model '%s': %s",
+            ai_config.vision_model,
+            err_msg,
+        )
+        raise AIError(
+            f"Ollama vision query failed for model '{ai_config.vision_model}': {err_msg}"
+        ) from exc
     except (TimeoutError, urllib.error.URLError) as exc:
         if isinstance(exc, TimeoutError) or "timed out" in str(exc).lower():
-            logger.warning("Ollama vision query timed out after %ds for model '%s'", ai_config.timeout_seconds, ai_config.vision_model)
-            raise AITimeoutError(f"Ollama vision query timed out after {ai_config.timeout_seconds}s") from exc
-        logger.warning("Ollama vision query failed for model '%s': %s", ai_config.vision_model, exc)
-        raise AIError(f"Ollama vision query failed for model '{ai_config.vision_model}': {exc}") from exc
+            logger.warning(
+                "Ollama vision query timed out after %ds for model '%s'",
+                ai_config.timeout_seconds,
+                ai_config.vision_model,
+            )
+            raise AITimeoutError(
+                f"Ollama vision query timed out after {ai_config.timeout_seconds}s"
+            ) from exc
+        logger.warning(
+            "Ollama vision query failed for model '%s': %s",
+            ai_config.vision_model,
+            exc,
+        )
+        raise AIError(
+            f"Ollama vision query failed for model '{ai_config.vision_model}': {exc}"
+        ) from exc
     except Exception as exc:
         if "timed out" in str(exc).lower():
-            logger.warning("Ollama vision query timed out after %ds for model '%s'", ai_config.timeout_seconds, ai_config.vision_model)
-            raise AITimeoutError(f"Ollama vision query timed out after {ai_config.timeout_seconds}s") from exc
-        logger.warning("Ollama vision query failed for model '%s': %s", ai_config.vision_model, exc)
-        raise AIError(f"Ollama vision query failed for model '{ai_config.vision_model}': {exc}") from exc
+            logger.warning(
+                "Ollama vision query timed out after %ds for model '%s'",
+                ai_config.timeout_seconds,
+                ai_config.vision_model,
+            )
+            raise AITimeoutError(
+                f"Ollama vision query timed out after {ai_config.timeout_seconds}s"
+            ) from exc
+        logger.warning(
+            "Ollama vision query failed for model '%s': %s",
+            ai_config.vision_model,
+            exc,
+        )
+        raise AIError(
+            f"Ollama vision query failed for model '{ai_config.vision_model}': {exc}"
+        ) from exc
 
 
 def query_ollama_multiple_images(
@@ -183,7 +323,16 @@ def query_ollama_multiple_images(
     if not ai_config.enabled or not ai_config.vision_model or not images_bytes:
         return None
 
-    b64_images = [base64.b64encode(b).decode("ascii") for b in images_bytes]
+    valid_images: List[bytes] = []
+    for b in images_bytes:
+        prep = prepare_image_for_vision(b)
+        if prep:
+            valid_images.append(prep)
+
+    if not valid_images:
+        return None
+
+    b64_images = [base64.b64encode(b).decode("ascii") for b in valid_images]
     endpoint = f"{ai_config.ollama_url.rstrip('/')}/api/generate"
 
     full_prompt = prompt
@@ -215,6 +364,25 @@ def query_ollama_multiple_images(
                 body = json.loads(resp.read().decode("utf-8"))
                 return str(body.get("response", "")).strip()
             raise AIError(f"Ollama multi-image vision query returned HTTP {resp.status}")
+    except urllib.error.HTTPError as exc:
+        if exc.code == 504:
+            logger.warning(
+                "Ollama multi-image vision query timed out after %ds for model '%s'",
+                ai_config.timeout_seconds,
+                ai_config.vision_model,
+            )
+            raise AITimeoutError(
+                f"Ollama multi-image vision query timed out after {ai_config.timeout_seconds}s"
+            ) from exc
+        err_msg = _format_ollama_http_error(exc, ai_config.vision_model)
+        logger.warning(
+            "Ollama multi-image vision query failed for model '%s': %s",
+            ai_config.vision_model,
+            err_msg,
+        )
+        raise AIError(
+            f"Ollama multi-image vision query failed for model '{ai_config.vision_model}': {err_msg}"
+        ) from exc
     except (TimeoutError, urllib.error.URLError) as exc:
         if isinstance(exc, TimeoutError) or "timed out" in str(exc).lower():
             logger.warning("Ollama multi-image vision query timed out after %ds", ai_config.timeout_seconds)

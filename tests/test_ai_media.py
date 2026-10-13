@@ -6,6 +6,8 @@ from unittest.mock import patch
 import pytest
 
 from directory2md.ai_client import (
+    AIError,
+    prepare_image_for_vision,
     query_ollama_multiple_images,
     query_ollama_vision,
     transcribe_audio_whisper,
@@ -467,5 +469,65 @@ def test_ia_model_and_version_in_media_parsers(tmp_path: Path):
                 assert "ia: true" in v_serialized
                 assert "ia_model: llava" in v_serialized
                 assert "ia_version: 13b" in v_serialized
+
+
+def test_ollama_http_400_unsupported_vision_model_error():
+    """Verify that Ollama HTTP 400 errors extract the body message and provide vision model guidance."""
+    import io
+    import urllib.error
+
+    ai_cfg = AIConfig(enabled=True, vision_model="gemma4:e2b")
+
+    err_body = b'{"error": "model \'gemma4:e2b\' does not support images"}'
+    err_fp = io.BytesIO(err_body)
+    http_error = urllib.error.HTTPError(
+        "http://localhost:11434/api/generate",
+        400,
+        "Bad Request",
+        {},
+        err_fp,
+    )
+
+    with patch("urllib.request.urlopen", side_effect=http_error):
+        with pytest.raises(AIError) as exc_info:
+            query_ollama_vision(b"fake_image_bytes", prompt="Describe image", ai_config=ai_cfg)
+
+        err_str = str(exc_info.value)
+        assert "HTTP Error 400: Bad Request" in err_str
+        assert "model 'gemma4:e2b' does not support images" in err_str
+        assert "[HINT]" in err_str
+        assert "multimodal vision model" in err_str
+
+
+def test_prepare_image_for_vision():
+    """Verify image normalization with Pillow (skipping spacers, converting RGBA to RGB JPEG)."""
+    import io
+    from PIL import Image
+
+    # 1. Empty bytes
+    assert prepare_image_for_vision(b"") is None
+
+    # 2. Tiny spacer image (2x2) -> Should be skipped (None)
+    tiny = Image.new("RGBA", (2, 2), (255, 255, 255, 0))
+    buf = io.BytesIO()
+    tiny.save(buf, format="PNG")
+    assert prepare_image_for_vision(buf.getvalue()) is None
+
+    # 3. Valid RGBA image (20x20) -> Should be converted to RGB JPEG
+    valid_rgba = Image.new("RGBA", (20, 20), (255, 0, 0, 128))
+    buf_valid = io.BytesIO()
+    valid_rgba.save(buf_valid, format="PNG")
+    prepared = prepare_image_for_vision(buf_valid.getvalue())
+    assert prepared is not None
+    assert prepared != buf_valid.getvalue()
+    with Image.open(io.BytesIO(prepared)) as out_img:
+        assert out_img.format == "JPEG"
+        assert out_img.mode == "RGB"
+        assert out_img.size == (20, 20)
+
+    # 4. Unknown/mock bytes -> Passed through unchanged
+    mock_bytes = b"mock_dummy_bytes_here"
+    assert prepare_image_for_vision(mock_bytes) == mock_bytes
+
 
 
