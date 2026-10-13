@@ -69,7 +69,7 @@ uv run directory2md <source_directory> <destination_directory>
 ### Options
 
 ```text
-usage: directory2md [-h] [-d DAYS] [-f [TARGET]] [-v] [-q] [--no-progress] source destination
+usage: directory2md [-h] [-f [TARGET]] [-v] source destination
 
 Recursively convert a directory to Markdown with matching structure.
 
@@ -79,21 +79,18 @@ positional arguments:
 
 options:
   -h, --help            Show this help message and exit
-  -d, --days DAYS       Age threshold in days to re-convert existing markdown files (default: 180)
   -f, --force [TARGET]  Force re-conversion of all files, or a specific file or directory (recursively)
-  -v, --verbose         Show detailed progress for each file
-  -q, --quiet           Suppress informational output and show only errors
-  --no-progress         Disable interactive progress bar
+  -v, --verbose         Show detailed progress for each file and initial configuration
 ```
 
 ### Examples
 
 ```bash
-# Standard conversion (uses/creates directory2md.yaml in destination)
+# Standard conversion (quiet by default with progress bar; uses/creates directory2md.yaml)
 uv run directory2md ~/Documents ~/Documents_md
 
-# Verbose mode with a custom 30-day age threshold
-uv run directory2md ~/Documents ~/Documents_md --days 30 -v
+# Verbose mode (shows configuration banner and per-file logs)
+uv run directory2md ~/Documents ~/Documents_md -v
 
 # Force re-conversion of all files
 uv run directory2md ~/Documents ~/Documents_md --force

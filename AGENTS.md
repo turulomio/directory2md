@@ -101,7 +101,7 @@ The `markdown-it-py` library is required across the project:
 - **Run CLI**:
   ```bash
   uv run directory2md <source_dir> <destination_dir>
-  uv run directory2md <source_dir> <destination_dir> -d 30 -v
+  uv run directory2md <source_dir> <destination_dir> -v
   uv run directory2md <source_dir> <destination_dir> --force
   ```
 - **Run Tests**:

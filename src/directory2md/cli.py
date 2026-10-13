@@ -34,13 +34,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Destination directory where markdown structure will be generated",
     )
     parser.add_argument(
-        "-d",
-        "--days",
-        type=int,
-        default=180,
-        help="Age threshold in days to re-convert existing markdown files (default: 180)",
-    )
-    parser.add_argument(
         "-f",
         "--force",
         nargs="?",
@@ -53,18 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-v",
         "--verbose",
         action="store_true",
-        help="Show detailed progress for each file",
-    )
-    parser.add_argument(
-        "-q",
-        "--quiet",
-        action="store_true",
-        help="Suppress informational output and show only errors",
-    )
-    parser.add_argument(
-        "--no-progress",
-        action="store_true",
-        help="Disable interactive progress bar",
+        help="Show detailed progress for each file and initial configuration",
     )
     return parser
 
@@ -103,19 +85,18 @@ def main(argv: list[str] | None = None) -> int:
     config_file: Path = dst_dir / "directory2md.yaml"
     if not config_file.exists():
         create_default_config_file(config_file)
-        if not args.quiet:
-            print("Se ha creado el archivo de configuración en:")
-            print(f"  {config_file.resolve()}\n")
-            print("Por favor, revisa y edita este archivo para configurar tus modelos de IA u otras opciones,")
-            print("y vuelve a ejecutar directory2md.")
+        print("Se ha creado el archivo de configuración en:")
+        print(f"  {config_file.resolve()}\n")
+        print("Por favor, revisa y edita este archivo para configurar tus modelos de IA u otras opciones,")
+        print("y vuelve a ejecutar directory2md.")
         return 0
 
     config = load_config(config_file)
-    days = args.days if args.days != 180 or config.days == 180 else config.days
+    days = config.days
     force = args.force if args.force else config.force
     verbose = args.verbose or config.verbose
 
-    if not args.quiet:
+    if verbose:
         print(f"Starting directory2md:")
         print(f"  Source:      {src_dir.resolve()}")
         print(f"  Destination: {dst_dir.resolve()}")
@@ -128,19 +109,18 @@ def main(argv: list[str] | None = None) -> int:
         if config.ai.enabled:
             print(f"  AI (Ollama): ENABLED (Vision: '{config.ai.vision_model or 'none'}', Audio: '{config.ai.audio_model or 'none'}')")
 
-    show_progress = (not args.quiet) and (not args.no_progress)
     pbar: tqdm | None = None
 
     def log_cb(msg: str) -> None:
-        if verbose and not args.quiet:
-            if pbar is not None and show_progress:
+        if verbose:
+            if pbar is not None:
                 tqdm.write(f"  • {msg}")
             else:
                 print(f"  • {msg}")
 
     def progress_cb(current: int, total: int, filename: str) -> None:
         nonlocal pbar
-        if not show_progress or total == 0:
+        if total == 0:
             return
         if pbar is None:
             pbar = tqdm(
@@ -148,7 +128,6 @@ def main(argv: list[str] | None = None) -> int:
                 desc="Converting files",
                 unit="file",
                 file=sys.stdout,
-                disable=True if (args.quiet or args.no_progress) else None,
                 leave=True,
             )
         display_name = Path(filename).name
@@ -173,15 +152,14 @@ def main(argv: list[str] | None = None) -> int:
         if pbar is not None:
             pbar.close()
 
-        if not args.quiet:
-            print("\nConversion finished:")
-            print(f"  Total scanned:   {stats.total_scanned}")
-            print(f"  Files converted: {stats.converted}")
-            print(f"  Files skipped:   {stats.skipped}")
-            if stats.has_errors:
-                print(f"  Errors encountered: {len(stats.errors)}", file=sys.stderr)
-                for path, err in stats.errors:
-                    print(f"    - {path}: {err}", file=sys.stderr)
+        print("\nConversion finished:")
+        print(f"  Total scanned:   {stats.total_scanned}")
+        print(f"  Files converted: {stats.converted}")
+        print(f"  Files skipped:   {stats.skipped}")
+        if stats.has_errors:
+            print(f"  Errors encountered: {len(stats.errors)}", file=sys.stderr)
+            for path, err in stats.errors:
+                print(f"    - {path}: {err}", file=sys.stderr)
 
         return 1 if stats.has_errors else 0
 

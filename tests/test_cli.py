@@ -48,7 +48,7 @@ def test_cli_nonexistent_source(tmp_path: Path, capsys):
     assert "Error: Source directory" in captured.err
 
 
-def test_cli_no_progress_and_quiet(tmp_path: Path, capsys):
+def test_cli_default_quiet_and_summary(tmp_path: Path, capsys):
     src = tmp_path / "src"
     dst = tmp_path / "dst"
     src.mkdir()
@@ -58,22 +58,13 @@ def test_cli_no_progress_and_quiet(tmp_path: Path, capsys):
     main([str(src), str(dst)])
     capsys.readouterr()
 
-    # Run with --no-progress
-    code = main([str(src), str(dst), "--no-progress"])
+    # Second run without --verbose: quiet by default (no Starting directory2md header)
+    code = main([str(src), str(dst)])
     assert code == 0
     captured = capsys.readouterr()
+    assert "Starting directory2md:" not in captured.out
     assert "Conversion finished:" in captured.out
-
-    # Run with --quiet
-    dst_quiet = tmp_path / "dst_quiet"
-    # First run creates config in dst_quiet
-    main([str(src), str(dst_quiet), "-q"])
-    # Second run with -q converts quietly
-    code = main([str(src), str(dst_quiet), "-q"])
-    assert code == 0
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert (dst_quiet / "test.txt.md").exists()
+    assert (dst / "test.txt.md").exists()
 
 
 def test_cli_destination_inside_source(tmp_path: Path, capsys):
@@ -101,8 +92,8 @@ def test_cli_force_targeted(tmp_path: Path, capsys):
     main([str(src), str(dst)])
     capsys.readouterr()
 
-    # Second run with --force subfolder
-    code = main([str(src), str(dst), "--force", "subfolder"])
+    # Second run with --force subfolder and --verbose
+    code = main([str(src), str(dst), "--force", "subfolder", "--verbose"])
     assert code == 0
     captured = capsys.readouterr()
     assert "Mode:        FORCE (target: 'subfolder')" in captured.out
