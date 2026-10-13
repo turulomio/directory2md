@@ -21,6 +21,7 @@ from directory2md.parsers.opendocument_parser import OpenDocumentParser
 from directory2md.parsers.pptx_parser import PPTXParser
 from directory2md.parsers.image_parser import ImageParser
 from directory2md.parsers.media_parser import AudioParser, VideoParser
+from directory2md.parsers.html_parser import HTMLParser
 
 PARSER_MAP: Dict[str, Type[BaseParser]] = {
     ".txt": TextParser,
@@ -77,6 +78,11 @@ PARSER_MAP: Dict[str, Type[BaseParser]] = {
     ".webm": VideoParser,
     ".flv": VideoParser,
     ".wmv": VideoParser,
+    # Web / HTML formats (including Monolith and SingleFile)
+    ".html": HTMLParser,
+    ".htm": HTMLParser,
+    ".xhtml": HTMLParser,
+    ".mhtml": HTMLParser,
 }
 
 ARCHIVE_EXTENSIONS = (

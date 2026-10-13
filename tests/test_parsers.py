@@ -90,3 +90,97 @@ def test_pdf_parser_suppresses_warnings(tmp_path: Path):
     # Ensure pypdf logger is at ERROR level (suppressing warnings)
     assert logging.getLogger("pypdf").level == logging.ERROR
 
+
+def test_html_parser_web_page(tmp_path: Path):
+    from directory2md.parsers.html_parser import HTMLParser
+
+    html_file = tmp_path / "webpage.html"
+    html_file.write_text(
+        """<!DOCTYPE html>
+<html>
+<head>
+    <title>My Web Page</title>
+    <meta name="description" content="A test web page for conversion">
+    <meta name="author" content="Test Author">
+    <style>body { color: blue; } h1 { font-size: 24px; }</style>
+    <script>alert('noise');</script>
+</head>
+<body>
+    <h1>My Web Page</h1>
+    <p>This is a paragraph with <strong>bold text</strong> and <a href="https://example.com">a link</a>.</p>
+    <blockquote>Wise words from the web.</blockquote>
+    <h2>Features Table</h2>
+    <table>
+        <thead><tr><th>Col 1</th><th>Col 2</th></tr></thead>
+        <tbody><tr><td>Val A</td><td>Val B</td></tr></tbody>
+    </table>
+    <pre><code class="language-python">print('hello world')</code></pre>
+</body>
+</html>""",
+        encoding="utf-8",
+    )
+
+    parser = HTMLParser()
+    meta, text = parser.parse(html_file)
+
+    assert meta.title == "My Web Page"
+    assert "My Web Page" in text
+    assert "bold text" in text
+    assert "[a link](https://example.com)" in text
+    assert "> Wise words from the web." in text
+    assert "Val A" in text
+    assert "print('hello world')" in text
+    # Styles and scripts must be completely stripped
+    assert "color: blue" not in text
+    assert "alert('noise')" not in text
+    assert validate_markdown(text)
+
+
+def test_html_parser_monolith_archive(tmp_path: Path):
+    from directory2md.parsers.html_parser import HTMLParser
+    from directory2md.converter import convert_directory
+
+    html_file = tmp_path / "monolith_dump.html"
+    # Monolith dump format with embedded base64 image and snapshot comment
+    html_file.write_text(
+        """<!DOCTYPE html>
+<!-- Snapshot taken by Monolith from https://example.com/saved-article at 2026-10-13 10:00:00 -->
+<html>
+<head>
+    <title>Monolith Preserved Article</title>
+    <style>@media print { .hidden { display: none; } }</style>
+</head>
+<body>
+    <h1>Monolith Preserved Article</h1>
+    <p>Preserved with complete offline assets.</p>
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" alt="Preserved Diagram">
+    <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=">
+    <a href="javascript:void(0)">Javascript Link</a>
+</body>
+</html>""",
+        encoding="utf-8",
+    )
+
+    parser = HTMLParser()
+    meta, text = parser.parse(html_file)
+
+    assert meta.title == "Monolith Preserved Article"
+    # Rule 2: NEVER embed raw base64 binary strings!
+    assert "data:image" not in text
+    assert "base64" not in text
+    assert "![Preserved Diagram](<embedded-image>)" in text
+    assert "![Image](<embedded-image>)" in text
+    assert "javascript:void(0)" not in text
+    assert "Javascript Link" in text
+    assert validate_markdown(text)
+
+    # Test full converter integration: converts to .html.directory2md.md
+    src_dir = tmp_path / "in"
+    src_dir.mkdir()
+    (src_dir / "monolith_dump.html").write_text(html_file.read_text(encoding="utf-8"), encoding="utf-8")
+    dst_dir = tmp_path / "out"
+    convert_directory(src_dir, dst_dir)
+    converted_file = dst_dir / "monolith_dump.html.directory2md.md"
+    assert converted_file.exists()
+
+

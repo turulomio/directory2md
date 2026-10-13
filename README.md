@@ -39,8 +39,8 @@ A modern, high-performance command-line tool and Python library managed with **u
   - **Audio**: Transcribes spoken content using local Whisper.
   - **Video**: Samples keyframes using ffmpeg and summarizes scenes with Ollama vision models.
   - **Configuration File**: Automatically creates `directory2md.yaml` in the destination directory on first run to configure AI models, prompts, and settings.
-- **Rich Document Parsing powered by `markdown-it-py`**:
-  - Robust parser registry covering PDF, DOCX, XLSX, ODS, ODT, ODP, PPTX, Images, Audio, Video, EML, Outlook MSG, ZIP, TAR, and plain text/code formats with multi-encoding support (UTF-8, Latin-1, CP1252).
+- **Rich Document Parsing powered by `markdown-it-py` and `markdownify`**:
+  - Robust parser registry covering PDF, DOCX, XLSX, ODS, ODT, ODP, PPTX, HTML / Web pages (including Monolith/SingleFile single-page archives), Images, Audio, Video, EML, Outlook MSG, ZIP, TAR, and plain text/code formats with multi-encoding support (UTF-8, Latin-1, CP1252).
   - Validates and sanitizes Markdown output using `markdown-it-py`.
 
 ---
