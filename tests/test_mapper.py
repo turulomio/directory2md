@@ -141,3 +141,70 @@ def test_mapper_html_container(tmp_path: Path):
 
     plain_md = get_md_path(html_plain, src_dir, dst_dir)
     assert plain_md == dst_dir / "plain.html.directory2md.md"
+
+
+SAMPLE_PDF_WITH_IMAGE = b"""%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length 7 >>
+stream
+FF0000>
+endstream
+endobj
+5 0 obj
+<< /Length 20 >>
+stream
+BT /F1 12 Tf ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000284 00000 n 
+0000000442 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+512
+%%EOF"""
+
+
+def test_mapper_pdf_container(tmp_path: Path):
+    src_dir = tmp_path / "src_pdf"
+    dst_dir = tmp_path / "dst_pdf"
+    src_dir.mkdir()
+    dst_dir.mkdir()
+
+    # 1. PDF with embedded images -> container
+    pdf_with_img = src_dir / "slides.pdf"
+    pdf_with_img.write_bytes(SAMPLE_PDF_WITH_IMAGE)
+
+    md_dir = get_md_path(pdf_with_img, src_dir, dst_dir)
+    assert md_dir == dst_dir / "slides.pdf.directory2md"
+
+    member_p = dst_dir / "slides.pdf.directory2md" / "page_001_img_01.png.directory2md.md"
+    orig = get_original_path(member_p, src_dir, dst_dir)
+    assert orig == pdf_with_img
+
+    details = resolve_mapping_details(member_p, src_dir, dst_dir)
+    assert details.is_container_member is True
+    assert details.container_original_path == pdf_with_img
+
+    # 2. PDF without images -> regular file
+    pdf_plain = src_dir / "plain.pdf"
+    pdf_plain.write_bytes(b"%PDF-1.4 \n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF")
+
+    plain_md = get_md_path(pdf_plain, src_dir, dst_dir)
+    assert plain_md == dst_dir / "plain.pdf.directory2md.md"
+

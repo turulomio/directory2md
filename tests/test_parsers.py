@@ -266,4 +266,77 @@ def test_pdf_and_document_surrogate_character_handling(tmp_path: Path):
     assert "Page text with" in content
 
 
+MINIMAL_PDF_WITH_IMAGE = b"""%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length 7 >>
+stream
+FF0000>
+endstream
+endobj
+5 0 obj
+<< /Length 44 >>
+stream
+BT /F1 12 Tf 10 100 Td (Annual Financial Report Summary) Tj ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000284 00000 n 
+0000000442 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+536
+%%EOF"""
+
+
+def test_pdf_with_images_container_conversion(tmp_path: Path):
+    """Test that a PDF with embedded images is processed as a container directory."""
+    from directory2md.converter import convert_directory
+
+    src_dir = tmp_path / "pdf_container_in"
+    src_dir.mkdir()
+    dst_dir = tmp_path / "pdf_container_out"
+    dst_dir.mkdir()
+
+    # 1. Create a PDF with text and an embedded image
+    pdf_path = src_dir / "report_with_charts.pdf"
+    pdf_path.write_bytes(MINIMAL_PDF_WITH_IMAGE)
+
+    # 2. Run conversion
+    convert_directory(src_dir, dst_dir)
+
+    # 3. Assert container directory is created: report_with_charts.pdf.directory2md/
+    container_dir = dst_dir / "report_with_charts.pdf.directory2md"
+    assert container_dir.is_dir()
+
+    # 4. Primary summary markdown: report_with_charts.pdf.directory2md.md
+    primary_file = container_dir / "report_with_charts.pdf.directory2md.md"
+    assert primary_file.exists()
+    primary_text = primary_file.read_text(encoding="utf-8")
+    assert "Annual Financial Report Summary" in primary_text
+    assert "page_001_img_01" in primary_text
+
+    # 5. Extracted image member: page_001_img_01.png.directory2md.md
+    extracted_member = container_dir / "page_001_img_01.png.directory2md.md"
+    assert extracted_member.exists()
+    member_text = extracted_member.read_text(encoding="utf-8")
+    assert "archive_member: page_001_img_01.png" in member_text
+    assert "PNG" in member_text
+
+
+
 

@@ -26,6 +26,7 @@ CONTAINER_EXT_PARTS = (
     ".htm",
     ".xhtml",
     ".mhtml",
+    ".pdf",
 )
 
 

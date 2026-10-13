@@ -140,12 +140,18 @@ def is_html_file(filepath: Path) -> bool:
     return suffix in (".html", ".htm", ".xhtml", ".mhtml")
 
 
+def is_pdf_file(filepath: Path) -> bool:
+    """Check if the given file is a PDF document (.pdf)."""
+    return filepath.suffix.lower() == ".pdf"
+
+
 def is_container_file(filepath: Path) -> bool:
     """Determine if a file behaves as a container (directory destination).
 
     Archives (.zip, .tar.gz, etc.) are always containers.
     Emails (.eml, .msg) are containers only if they contain attachments.
     HTML/web pages (.html, .htm, .xhtml, .mhtml) are containers only if they contain embedded images.
+    PDF documents (.pdf) are containers only if they contain embedded images.
     """
     if is_archive_file(filepath):
         return True
@@ -155,6 +161,10 @@ def is_container_file(filepath: Path) -> bool:
         from directory2md.parsers.html_parser import html_has_embedded_images
 
         return html_has_embedded_images(filepath)
+    if is_pdf_file(filepath):
+        from directory2md.parsers.pdf_parser import pdf_has_images
+
+        return pdf_has_images(filepath)
     return False
 
 
