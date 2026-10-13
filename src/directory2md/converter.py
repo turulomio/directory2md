@@ -16,6 +16,7 @@ import tempfile
 from typing import Callable, List, Optional, Tuple
 import zipfile
 
+from directory2md.config import Config
 from directory2md.markdown_utils import (
     extract_title_from_markdown,
     serialize_document,
@@ -58,6 +59,7 @@ class DirectoryConverter:
         verbose: bool = False,
         log_callback: Optional[Callable[[str], None]] = None,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
+        config: Optional[Config] = None,
     ) -> None:
         """Initialize converter.
 
@@ -67,12 +69,14 @@ class DirectoryConverter:
             verbose: Enable verbose logging.
             log_callback: Optional callback receiving progress log messages.
             progress_callback: Optional callback receiving (current, total, filename) for progress reporting.
+            config: Optional Config instance for AI and format settings.
         """
         self.max_age_days = max_age_days
         self.force = force
         self.verbose = verbose
         self.log_callback = log_callback or (lambda msg: None)
         self.progress_callback = progress_callback
+        self.config = config
 
     def log(self, message: str) -> None:
         """Log message via callback and logger."""
@@ -242,7 +246,7 @@ class DirectoryConverter:
         extra_frontmatter: Optional[dict] = None,
     ) -> None:
         """Convert a single standard document into a Markdown file with frontmatter."""
-        parser = get_parser_for_file(src_file)
+        parser = get_parser_for_file(src_file, config=self.config)
         metadata, content = parser.parse(src_file)
 
         metadata.filepath = str(src_file.resolve())
@@ -273,7 +277,7 @@ class DirectoryConverter:
     ) -> None:
         """Convert a compressed archive into a directory with its summary and member files."""
         name_lower = archive_path.name.lower()
-        parser = get_parser_for_file(archive_path)
+        parser = get_parser_for_file(archive_path, config=self.config)
         archive_meta, archive_summary = parser.parse(archive_path)
         archive_meta.filepath = str(archive_path.resolve())
         archive_meta.relative_path = str(rel_archive)
@@ -578,6 +582,7 @@ def convert_directory(
     verbose: bool = False,
     log_callback: Optional[Callable[[str], None]] = None,
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    config: Optional[Config] = None,
 ) -> ConversionStats:
     """Convenience helper to convert a directory to markdown with default settings."""
     converter = DirectoryConverter(
@@ -586,5 +591,6 @@ def convert_directory(
         verbose=verbose,
         log_callback=log_callback,
         progress_callback=progress_callback,
+        config=config,
     )
     return converter.convert_directory(src_dir, dst_dir)

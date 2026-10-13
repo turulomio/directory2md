@@ -25,14 +25,20 @@ A modern, high-performance command-line tool and Python library managed with **u
   - Retrieve detailed structural mapping information: `resolve_mapping_details()`.
 - **YAML Frontmatter Metadata**:
   - Every generated `.md` file begins with clean YAML frontmatter containing:
+    - `ia`: Boolean (`true` or `false`) indicating whether the document was processed/generated with AI.
     - `original_path`: Absolute path to original file.
     - `filename`: Base name of original file.
     - `file_size_bytes`: Original file size.
     - `sha256_hash`: SHA-256 checksum.
     - `conversion_date`: ISO-8601 timestamp of conversion.
     - Container member indicators (`archive_member` or `attachment_name`).
+- **AI-Powered Media Processing (Ollama & Media)**:
+  - **Images**: Extracts OCR text and detailed visual descriptions using local Ollama vision models (e.g. `llava`, `llama3.2-vision`, `qwen2.5-vl`).
+  - **Audio**: Transcribes spoken content using local Whisper.
+  - **Video**: Samples keyframes using ffmpeg and summarizes scenes with Ollama vision models.
+  - **Configuration File**: Automatically creates `directory2md.yaml` in the destination directory on first run to configure AI models, prompts, and settings.
 - **Rich Document Parsing powered by `markdown-it-py`**:
-  - Robust parser registry covering PDF, DOCX, XLSX, ODS, ODT, ODP, PPTX, Images (embedded as base64 Data URIs), EML, Outlook MSG, ZIP, TAR, and plain text/code formats with multi-encoding support (UTF-8, Latin-1, CP1252).
+  - Robust parser registry covering PDF, DOCX, XLSX, ODS, ODT, ODP, PPTX, Images (embedded as base64 Data URIs), Audio, Video, EML, Outlook MSG, ZIP, TAR, and plain text/code formats with multi-encoding support (UTF-8, Latin-1, CP1252).
   - Validates and sanitizes Markdown output using `markdown-it-py`.
 
 ---
@@ -63,7 +69,7 @@ uv run directory2md <source_directory> <destination_directory>
 ### Options
 
 ```text
-usage: directory2md [-h] [-d DAYS] [-f] [-v] [-q] [--no-progress] source destination
+usage: directory2md [-h] [-d DAYS] [-f] [-v] [-q] [--no-progress] [-c CONFIG] source destination
 
 Recursively convert a directory to Markdown with matching structure.
 
@@ -78,6 +84,7 @@ options:
   -v, --verbose    Show detailed progress for each file
   -q, --quiet      Suppress informational output and show only errors
   --no-progress    Disable interactive progress bar
+  -c, --config     Path to YAML configuration file (default: <destination>/directory2md.yaml)
 ```
 
 ### Examples

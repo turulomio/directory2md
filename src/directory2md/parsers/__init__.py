@@ -20,6 +20,7 @@ from directory2md.parsers.archive_parser import ArchiveParser
 from directory2md.parsers.opendocument_parser import OpenDocumentParser
 from directory2md.parsers.pptx_parser import PPTXParser
 from directory2md.parsers.image_parser import ImageParser
+from directory2md.parsers.media_parser import AudioParser, VideoParser
 
 PARSER_MAP: Dict[str, Type[BaseParser]] = {
     ".txt": TextParser,
@@ -49,6 +50,7 @@ PARSER_MAP: Dict[str, Type[BaseParser]] = {
     ".tgz": ArchiveParser,
     ".bz2": ArchiveParser,
     ".tbz2": ArchiveParser,
+    # Image formats
     ".png": ImageParser,
     ".jpg": ImageParser,
     ".jpeg": ImageParser,
@@ -59,6 +61,22 @@ PARSER_MAP: Dict[str, Type[BaseParser]] = {
     ".ico": ImageParser,
     ".tif": ImageParser,
     ".tiff": ImageParser,
+    # Audio formats
+    ".mp3": AudioParser,
+    ".wav": AudioParser,
+    ".m4a": AudioParser,
+    ".ogg": AudioParser,
+    ".flac": AudioParser,
+    ".aac": AudioParser,
+    ".wma": AudioParser,
+    # Video formats
+    ".mp4": VideoParser,
+    ".mkv": VideoParser,
+    ".avi": VideoParser,
+    ".mov": VideoParser,
+    ".webm": VideoParser,
+    ".flv": VideoParser,
+    ".wmv": VideoParser,
 }
 
 ARCHIVE_EXTENSIONS = (
@@ -123,13 +141,14 @@ def is_container_file(filepath: Path) -> bool:
     return False
 
 
-def get_parser_for_file(filepath: Path) -> BaseParser:
+def get_parser_for_file(filepath: Path, config: Optional[Any] = None) -> BaseParser:
     """Return the appropriate parser instance for the given file extension.
 
     If the extension is not explicitly mapped, falls back to :class:`TextParser`.
 
     Args:
         filepath: Path to the target file.
+        config: Optional Config instance for AI and media parsers.
 
     Returns:
         An instantiated subclass of :class:`BaseParser`.
@@ -139,4 +158,7 @@ def get_parser_for_file(filepath: Path) -> BaseParser:
 
     suffix = filepath.suffix.lower()
     parser_cls = PARSER_MAP.get(suffix, TextParser)
+    if parser_cls in (ImageParser, AudioParser, VideoParser):
+        return parser_cls(config=config)
     return parser_cls()
+

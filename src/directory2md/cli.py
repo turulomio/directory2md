@@ -63,11 +63,20 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable interactive progress bar",
     )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=Path,
+        default=None,
+        help="Path to YAML configuration file (default: <destination>/directory2md.yaml)",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     """Main CLI entrypoint."""
+    from directory2md.config import create_default_config_file, load_config
+
     logging.getLogger("pypdf").setLevel(logging.ERROR)
     warnings.filterwarnings("ignore", module="pypdf")
 
@@ -94,19 +103,38 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    # Configuration file handling: in destination directory if not specified
+    config_file: Path = args.config if args.config else (dst_dir / "directory2md.yaml")
+    if not config_file.exists():
+        create_default_config_file(config_file)
+        if not args.quiet:
+            print(f"Se ha creado el archivo de configuración en:")
+            print(f"  {config_file.resolve()}\n")
+            print("Por favor, revisa y edita este archivo para configurar tus modelos de IA u otras opciones,")
+            print("y vuelve a ejecutar directory2md.")
+        return 0
+
+    config = load_config(config_file)
+    days = args.days if args.days != 180 or config.days == 180 else config.days
+    force = args.force or config.force
+    verbose = args.verbose or config.verbose
+
     if not args.quiet:
         print(f"Starting directory2md:")
         print(f"  Source:      {src_dir.resolve()}")
         print(f"  Destination: {dst_dir.resolve()}")
-        print(f"  Threshold:   {args.days} days")
-        if args.force:
+        print(f"  Config:      {config_file.resolve()}")
+        print(f"  Threshold:   {days} days")
+        if force:
             print("  Mode:        FORCE (refreshing all files)")
+        if config.ai.enabled:
+            print(f"  AI (Ollama): ENABLED (Vision: '{config.ai.vision_model or 'none'}', Audio: '{config.ai.audio_model or 'none'}')")
 
     show_progress = (not args.quiet) and (not args.no_progress)
     pbar: tqdm | None = None
 
     def log_cb(msg: str) -> None:
-        if args.verbose and not args.quiet:
+        if verbose and not args.quiet:
             if pbar is not None and show_progress:
                 tqdm.write(f"  • {msg}")
             else:
@@ -136,11 +164,12 @@ def main(argv: list[str] | None = None) -> int:
         stats = convert_directory(
             src_dir=src_dir,
             dst_dir=dst_dir,
-            max_age_days=args.days,
-            force=args.force,
-            verbose=args.verbose,
+            max_age_days=days,
+            force=force,
+            verbose=verbose,
             log_callback=log_cb,
             progress_callback=progress_cb,
+            config=config,
         )
 
         if pbar is not None:

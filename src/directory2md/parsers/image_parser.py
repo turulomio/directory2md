@@ -9,8 +9,10 @@ from __future__ import annotations
 import base64
 import mimetypes
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
+from directory2md.ai_client import query_ollama_vision
+from directory2md.config import Config
 from directory2md.models import DocumentMetadata
 from directory2md.parsers.base import BaseParser
 
@@ -47,7 +49,10 @@ def _format_file_size(size_bytes: int) -> str:
 
 
 class ImageParser(BaseParser):
-    """Parser for image formats preserving visual assets and avoiding binary corruption."""
+    """Parser for image formats preserving visual assets with optional AI OCR and description."""
+
+    def __init__(self, config: Optional[Config] = None) -> None:
+        self.config = config
 
     def parse(self, filepath: Path) -> Tuple[DocumentMetadata, str]:
         """Parse an image file, generate metadata, and construct an embedded image representation.
@@ -67,6 +72,7 @@ class ImageParser(BaseParser):
 
         # Read binary data and convert to base64 Data URI for zero-CORS embedding
         data_uri = ""
+        raw_bytes = b""
         try:
             raw_bytes = filepath.read_bytes()
             b64_str = base64.b64encode(raw_bytes).decode("ascii")
@@ -88,11 +94,57 @@ class ImageParser(BaseParser):
             lines.append(f"![{filepath.name}]({data_uri})")
         else:
             lines.append(f"> *Preview unavailable for {filepath.name}*")
+        lines.append("")
 
-        clean_text = "\n".join(lines)
+        # AI Processing (OCR and Description) if enabled
+        used_ai = False
+        all_ai_text = []
 
-        metadata.word_count = 0  # Images do not contain text word counts by default
-        metadata.text_snippet = f"[Image ({suffix.upper().lstrip('.')}) • {size_str}]"
+        if self.config and self.config.ai.enabled and self.config.ai.vision_model and raw_bytes:
+            # 1. OCR text extraction
+            ocr_text = query_ollama_vision(
+                raw_bytes,
+                prompt=self.config.ai.prompt_image_ocr,
+                ai_config=self.config.ai,
+            )
+            if ocr_text:
+                used_ai = True
+                all_ai_text.append(ocr_text)
+                lines.extend([
+                    "## AI OCR (Extracted Text)",
+                    "",
+                    ocr_text,
+                    "",
+                ])
+
+            # 2. Image description
+            desc_text = query_ollama_vision(
+                raw_bytes,
+                prompt=self.config.ai.prompt_image_description,
+                ai_config=self.config.ai,
+            )
+            if desc_text:
+                used_ai = True
+                all_ai_text.append(desc_text)
+                lines.extend([
+                    "## AI Image Description",
+                    "",
+                    desc_text,
+                    "",
+                ])
+
+        metadata.ia = used_ai
+
+        clean_text = "\n".join(lines).strip()
+        if all_ai_text:
+            combined = " ".join(all_ai_text)
+            words = combined.split()
+            metadata.word_count = len(words)
+            metadata.text_snippet = " ".join(words[:60])
+        else:
+            metadata.word_count = 0
+            metadata.text_snippet = f"[Image ({suffix.upper().lstrip('.')}) • {size_str}]"
+
         metadata.extracted_text = clean_text
-
         return metadata, clean_text
+

@@ -20,6 +20,7 @@ This document outlines the architecture, conventions, workflows, and lessons lea
    - Plain `.eml` or `.msg` files with no attachments are treated as regular files and converted directly to `<name>.eml.md` without creating a container directory.
 4. **YAML Frontmatter Headers**:
    - Every generated `.md` file includes frontmatter containing:
+     - `ia`: Boolean (`true`/`false`) flag indicating whether the output was generated with AI.
      - `original_path`: Absolute path to original file.
      - `filename`: Base filename.
      - `file_size_bytes`: Original file size in bytes.
@@ -44,7 +45,9 @@ directory2md/
 ├── src/
 │   └── directory2md/
 │       ├── __init__.py           # Public API and exports
-│       ├── cli.py                # Command-line interface (argparse)
+│       ├── ai_client.py          # Ollama REST API client, keyframe extraction & Whisper
+│       ├── cli.py                # Command-line interface with interactive progress bar
+│       ├── config.py             # Config & AIConfig models and YAML configuration loader
 │       ├── converter.py          # DirectoryConverter engine and convert_directory
 │       ├── mapper.py             # Bidirectional get_original_path and get_md_path
 │       ├── markdown_utils.py     # markdown-it-py and PyYAML frontmatter helpers
@@ -57,13 +60,14 @@ directory2md/
 │           ├── archive_parser.py # ZIP, TAR, TGZ
 │           ├── docx_parser.py    # DOCX (python-docx)
 │           ├── email_parser.py   # EML (email) and MSG (extract-msg)
-│           ├── image_parser.py   # PNG, JPG, WEBP, SVG (Base64 Data URI)
+│           ├── image_parser.py   # PNG, JPG, WEBP, SVG (Base64 Data URI + Ollama OCR/description)
+│           ├── media_parser.py   # Audio (MP3/WAV/etc.) & Video (MP4/MKV/etc.) with AI summaries
 │           ├── opendocument_parser.py # ODT, ODP
 │           ├── pdf_parser.py     # PDF (pypdf)
 │           ├── pptx_parser.py    # PPTX, PPT (olefile)
 │           ├── spreadsheet_parser.py  # CSV, TSV, XLSX, ODS
 │           └── text_parser.py    # TXT, MD, LOG, JSON (markdown-it-py)
-├── tests/                        # 21 automated pytest test suites
+├── tests/                        # Automated pytest test suites
 ├── pyproject.toml                # UV package configuration
 └── README.md                     # User documentation
 ```

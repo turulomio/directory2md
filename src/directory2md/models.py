@@ -56,6 +56,7 @@ class DocumentMetadata:
     parent_document: Optional[str] = None
     origin_type: str = "file"
     email_headers: Optional[EmailHeaders] = None
+    ia: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert document metadata to a serializable dictionary."""
@@ -69,6 +70,7 @@ class DocumentMetadata:
             "sha256_hash": self.sha256_hash,
             "word_count": self.word_count,
             "origin_type": self.origin_type,
+            "ia": self.ia,
         }
         if self.date_str:
             res["date"] = self.date_str

@@ -22,12 +22,19 @@ def test_cli_execution(tmp_path: Path, capsys):
     f = src / "test.txt"
     f.write_text("Command line test")
 
-    code = main([str(src), str(dst), "--verbose"])
-    assert code == 0
+    # First run: creates config file and prompts user to edit
+    code1 = main([str(src), str(dst), "--verbose"])
+    assert code1 == 0
+    captured1 = capsys.readouterr()
+    assert "Se ha creado el archivo de configuración en:" in captured1.out
+    assert (dst / "directory2md.yaml").exists()
 
-    captured = capsys.readouterr()
-    assert "Starting directory2md:" in captured.out
-    assert "Conversion finished:" in captured.out
+    # Second run: config exists, executes conversion
+    code2 = main([str(src), str(dst), "--verbose"])
+    assert code2 == 0
+    captured2 = capsys.readouterr()
+    assert "Starting directory2md:" in captured2.out
+    assert "Conversion finished:" in captured2.out
     assert (dst / "test.txt.md").exists()
 
 
@@ -47,6 +54,10 @@ def test_cli_no_progress_and_quiet(tmp_path: Path, capsys):
     src.mkdir()
     (src / "test.txt").write_text("sample")
 
+    # First run to initialize config
+    main([str(src), str(dst)])
+    capsys.readouterr()
+
     # Run with --no-progress
     code = main([str(src), str(dst), "--no-progress"])
     assert code == 0
@@ -55,6 +66,9 @@ def test_cli_no_progress_and_quiet(tmp_path: Path, capsys):
 
     # Run with --quiet
     dst_quiet = tmp_path / "dst_quiet"
+    # First run creates config in dst_quiet
+    main([str(src), str(dst_quiet), "-q"])
+    # Second run with -q converts quietly
     code = main([str(src), str(dst_quiet), "-q"])
     assert code == 0
     captured = capsys.readouterr()
