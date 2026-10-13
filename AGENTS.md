@@ -62,7 +62,7 @@ directory2md/
 │           ├── archive_parser.py # ZIP, TAR, TGZ
 │           ├── docx_parser.py    # DOCX (python-docx)
 │           ├── email_parser.py   # EML (email) and MSG (extract-msg)
-│           ├── image_parser.py   # PNG, JPG, WEBP, SVG (Base64 Data URI + Ollama OCR/description)
+│           ├── image_parser.py   # PNG, JPG, WEBP, SVG (Ollama OCR & description, without Base64)
 │           ├── media_parser.py   # Audio (MP3/WAV/etc.) & Video (MP4/MKV/etc.) with AI summaries
 │           ├── opendocument_parser.py # ODT, ODP
 │           ├── pdf_parser.py     # PDF (pypdf)

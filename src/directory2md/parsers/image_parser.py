@@ -1,12 +1,10 @@
 """Image file parser for raster and vector graphics (.png, .jpg, .gif, .webp, .svg, .bmp, .ico, .tiff).
 
-Extracts filename metadata, file dimensions/size, generates base64 data URIs for
-safe embedding in static web views, and prevents binary junk text corruption.
+Extracts filename metadata, file dimensions/size, and processes images with optional AI OCR and visual description.
 """
 
 from __future__ import annotations
 
-import base64
 import mimetypes
 from pathlib import Path
 from typing import Optional, Tuple
@@ -70,15 +68,12 @@ class ImageParser(BaseParser):
         size_bytes = metadata.file_size_bytes
         size_str = _format_file_size(size_bytes)
 
-        # Read binary data and convert to base64 Data URI for zero-CORS embedding
-        data_uri = ""
+        # Read binary data for AI vision analysis
         raw_bytes = b""
         try:
             raw_bytes = filepath.read_bytes()
-            b64_str = base64.b64encode(raw_bytes).decode("ascii")
-            data_uri = f"data:{mime_type};base64,{b64_str}"
         except Exception:
-            data_uri = ""
+            raw_bytes = b""
 
         # Construct clean Markdown representation
         lines = [
@@ -89,12 +84,6 @@ class ImageParser(BaseParser):
             f"- **Path:** `{filepath.name}`",
             "",
         ]
-
-        if data_uri:
-            lines.append(f"![{filepath.name}]({data_uri})")
-        else:
-            lines.append(f"> *Preview unavailable for {filepath.name}*")
-        lines.append("")
 
         # AI Processing (OCR and Description) if enabled
         used_ai = False
@@ -134,6 +123,12 @@ class ImageParser(BaseParser):
                 ])
 
         metadata.ia = used_ai
+
+        if not used_ai:
+            lines.extend([
+                "> *Image analysis not available (Ollama vision model unavailable or AI disabled).* ",
+                "",
+            ])
 
         clean_text = "\n".join(lines).strip()
         if all_ai_text:

@@ -124,7 +124,9 @@ def test_image_parser_without_ai(tmp_path: Path):
     parser = ImageParser()
     meta, text = parser.parse(img_file)
     assert meta.ia is False
-    assert "data:image/png;base64," in text
+    assert "base64" not in text
+    assert "data:image" not in text
+    assert "# Image: test.png" in text
     assert "## AI OCR" not in text
 
 
@@ -153,6 +155,8 @@ def test_image_parser_with_ai_mocked(tmp_path: Path):
         meta, text = parser.parse(img_file)
 
         assert meta.ia is True
+        assert "base64" not in text
+        assert "data:image" not in text
         assert "## AI OCR (Extracted Text)" in text
         assert "FACTURA TOTAL: 150.00 EUR" in text
         assert "## AI Image Description" in text

@@ -43,7 +43,9 @@ def test_image_parser(tmp_path: Path):
     meta, text = parser.parse(img_file)
 
     assert meta.filename == "photo.png"
-    assert "data:image/png;base64," in text
+    assert "base64" not in text
+    assert "data:image" not in text
+    assert "# Image: photo.png" in text
     assert validate_markdown(text)
 
 
