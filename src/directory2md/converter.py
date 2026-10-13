@@ -225,23 +225,38 @@ class DirectoryConverter:
     def _resolve_force_target(self, src_root: Path, target_str: str) -> Path:
         """Resolve a targeted path string specified in force option."""
         target = Path(target_str)
+        src_resolved = src_root.resolve()
+
         if target.is_absolute():
             resolved = target.resolve()
-            if resolved == src_root or resolved.is_relative_to(src_root):
-                return resolved
+            if not (resolved == src_resolved or resolved.is_relative_to(src_resolved)):
+                raise ValueError(
+                    f"Target path '{target_str}' specified in --force is outside source directory '{src_root}'."
+                )
+            if not resolved.exists():
+                raise ValueError(
+                    f"Target path '{target_str}' specified in --force does not exist in source directory '{src_root}'."
+                )
+            return resolved
+
+        candidate_src = (src_resolved / target).resolve()
+        candidate_cwd = target.resolve()
+
+        if candidate_src == src_resolved or candidate_src.is_relative_to(src_resolved):
+            if candidate_src.exists():
+                return candidate_src
+            if candidate_cwd.exists() and (candidate_cwd == src_resolved or candidate_cwd.is_relative_to(src_resolved)):
+                return candidate_cwd
             raise ValueError(
-                f"Target path '{target_str}' specified in --force is outside source directory '{src_root}'."
+                f"Target path '{target_str}' specified in --force does not exist in source directory '{src_root}'."
             )
 
-        candidate = (src_root / target).resolve()
-        if candidate.exists() and (candidate == src_root or candidate.is_relative_to(src_root)):
-            return candidate
-
-        candidate_cwd = target.resolve()
-        if candidate_cwd.exists() and (candidate_cwd == src_root or candidate_cwd.is_relative_to(src_root)):
+        if candidate_cwd.exists() and (candidate_cwd == src_resolved or candidate_cwd.is_relative_to(src_resolved)):
             return candidate_cwd
 
-        return (src_root / target).resolve()
+        raise ValueError(
+            f"Target path '{target_str}' specified in --force is outside source directory '{src_root}'."
+        )
 
     def _process_file(
         self,

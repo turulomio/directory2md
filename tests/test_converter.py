@@ -211,5 +211,9 @@ def test_force_with_targeted_path_or_file(tmp_path: Path):
     with pytest.raises(ValueError, match="does not exist in source directory"):
         convert_directory(src, dst, force="does_not_exist")
 
+    # 4. Outside target raises ValueError
+    with pytest.raises(ValueError, match="is outside source directory"):
+        convert_directory(src, dst, force="../outside_dir")
+
 
 

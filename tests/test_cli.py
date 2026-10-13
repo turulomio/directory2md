@@ -123,5 +123,26 @@ def test_cli_updates_old_config_keys(tmp_path: Path, capsys):
     assert 'language: "en"' in config_content
 
 
+def test_cli_force_target_outside_source_fails(tmp_path: Path, capsys):
+    src = tmp_path / "source"
+    dst = tmp_path / "dest"
+    src.mkdir()
+    dst.mkdir()
+    (src / "doc.txt").write_text("content")
+
+    # Target outside source
+    code = main([str(src), str(dst), "--force", "../outside_dir"])
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "Error: Target path '../outside_dir' specified in --force is outside source directory" in captured.err
+
+    # Target nonexistent inside source
+    code2 = main([str(src), str(dst), "--force", "missing.txt"])
+    assert code2 == 1
+    captured2 = capsys.readouterr()
+    assert "Error: Target path 'missing.txt' specified in --force does not exist in source directory" in captured2.err
+
+
+
 
 

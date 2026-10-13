@@ -51,6 +51,42 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _validate_force_target(force: Any, src_dir: Path, src_resolved: Path) -> Optional[str]:
+    """Validate that a targeted force path is inside src_dir and exists.
+
+    Returns error message string if invalid, or None if valid.
+    """
+    if not isinstance(force, str):
+        return None
+    target_str = force.strip()
+    if target_str in ("*", "true", "True", "1", "", "false", "False", "0"):
+        return None
+
+    target = Path(target_str)
+    if target.is_absolute():
+        resolved = target.resolve()
+        if not (resolved == src_resolved or resolved.is_relative_to(src_resolved)):
+            return f"Error: Target path '{target_str}' specified in --force is outside source directory '{src_dir}'."
+        if not resolved.exists():
+            return f"Error: Target path '{target_str}' specified in --force does not exist in source directory '{src_dir}'."
+        return None
+
+    candidate_src = (src_resolved / target).resolve()
+    candidate_cwd = target.resolve()
+
+    if candidate_src == src_resolved or candidate_src.is_relative_to(src_resolved):
+        if candidate_src.exists():
+            return None
+        if candidate_cwd.exists() and (candidate_cwd == src_resolved or candidate_cwd.is_relative_to(src_resolved)):
+            return None
+        return f"Error: Target path '{target_str}' specified in --force does not exist in source directory '{src_dir}'."
+
+    if candidate_cwd.exists() and (candidate_cwd == src_resolved or candidate_cwd.is_relative_to(src_resolved)):
+        return None
+
+    return f"Error: Target path '{target_str}' specified in --force is outside source directory '{src_dir}'."
+
+
 def main(argv: list[str] | None = None) -> int:
     """Main CLI entrypoint."""
     from directory2md.config import (
@@ -85,6 +121,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    # Validate CLI force argument early
+    if err := _validate_force_target(args.force, src_dir, src_resolved):
+        print(err, file=sys.stderr)
+        return 1
+
     # Configuration file in destination directory: create on first run and prompt edit
     config_file: Path = dst_dir / "directory2md.yaml"
     if not config_file.exists():
@@ -100,6 +141,12 @@ def main(argv: list[str] | None = None) -> int:
     days = config.days
     force = args.force if args.force else config.force
     verbose = args.verbose or config.verbose
+
+    # Validate force setting if it came from config
+    if err := _validate_force_target(force, src_dir, src_resolved):
+        print(err, file=sys.stderr)
+        return 1
+
 
     if verbose:
         print(f"Starting directory2md:")
