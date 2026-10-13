@@ -35,6 +35,8 @@ def test_zip_container_conversion(tmp_path: Path):
     fm, body = parse_frontmatter(primary_md.read_text(encoding="utf-8"))
     assert fm["filename"] == "bundle.zip"
     assert "Archive Table of Contents" in body
+    assert "conversion_time" in fm
+    assert isinstance(fm["conversion_time"], (int, float))
 
     # Children files converted with .md
     child1 = container_dir / "notes.txt.md"
@@ -42,6 +44,7 @@ def test_zip_container_conversion(tmp_path: Path):
     fm1, body1 = parse_frontmatter(child1.read_text(encoding="utf-8"))
     assert "Important notes inside zip" in body1
     assert fm1["archive_member"] == "notes.txt"
+    assert "conversion_time" in fm1
 
     child2 = container_dir / "sub" / "data.csv.md"
     assert child2.is_file()

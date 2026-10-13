@@ -68,6 +68,8 @@ def serialize_document(
         Complete Markdown document string with YAML frontmatter.
     """
     fm_data: Dict[str, Any] = metadata.to_dict()
+    if "conversion_time" not in fm_data:
+        fm_data["conversion_time"] = metadata.conversion_time if metadata.conversion_time is not None else 0.0
     fm_data["conversion_date"] = datetime.now().isoformat(timespec="seconds")
 
     if extra_frontmatter:

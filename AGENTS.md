@@ -25,6 +25,7 @@ This document outlines the architecture, conventions, workflows, and lessons lea
      - `filename`: Base filename.
      - `file_size_bytes`: Original file size in bytes.
      - `sha256_hash`: SHA-256 checksum.
+     - `conversion_time`: Duration of conversion in seconds (float).
      - `conversion_date`: ISO-8601 conversion timestamp.
      - For extracted container members: `archive_member` or `attachment_name`.
 5. **Incremental Update Policy** (Default 180 Days):

@@ -57,6 +57,7 @@ class DocumentMetadata:
     origin_type: str = "file"
     email_headers: Optional[EmailHeaders] = None
     ia: bool = False
+    conversion_time: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert document metadata to a serializable dictionary."""
@@ -72,6 +73,8 @@ class DocumentMetadata:
             "origin_type": self.origin_type,
             "ia": self.ia,
         }
+        if self.conversion_time is not None:
+            res["conversion_time"] = self.conversion_time
         if self.date_str:
             res["date"] = self.date_str
         if self.time_str:

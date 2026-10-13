@@ -13,6 +13,7 @@ from pathlib import Path
 import shutil
 import tarfile
 import tempfile
+import time
 from typing import Callable, List, Optional, Tuple
 import zipfile
 
@@ -288,6 +289,7 @@ class DirectoryConverter:
         extra_frontmatter: Optional[dict] = None,
     ) -> None:
         """Convert a single standard document into a Markdown file with frontmatter."""
+        start_time = time.perf_counter()
         parser = get_parser_for_file(src_file, config=self.config)
         metadata, content = parser.parse(src_file)
 
@@ -301,6 +303,8 @@ class DirectoryConverter:
 
         # Validate with markdown-it-py
         validate_markdown(content)
+
+        metadata.conversion_time = round(time.perf_counter() - start_time, 4)
 
         fm_extras = {
             "original_path": str(src_file.resolve()),
@@ -318,11 +322,13 @@ class DirectoryConverter:
         dst_container: Path,
     ) -> None:
         """Convert a compressed archive into a directory with its summary and member files."""
+        start_time = time.perf_counter()
         name_lower = archive_path.name.lower()
         parser = get_parser_for_file(archive_path, config=self.config)
         archive_meta, archive_summary = parser.parse(archive_path)
         archive_meta.filepath = str(archive_path.resolve())
         archive_meta.relative_path = str(rel_archive)
+        archive_meta.conversion_time = round(time.perf_counter() - start_time, 4)
 
         # 1. Write archive primary summary file: <archive_name>.md
         primary_md = dst_container / f"{archive_path.name}.md"
@@ -411,6 +417,7 @@ class DirectoryConverter:
         dst_container: Path,
     ) -> None:
         """Extract MIME .eml body to <name>.md and attachments to <att>.md."""
+        start_time = time.perf_counter()
         with open(email_path, "rb") as f:
             msg = BytesParser(policy=policy.default).parse(f)
 
@@ -493,6 +500,7 @@ class DirectoryConverter:
             extracted_text=email_full_text,
             email_headers=email_headers,
             contained_files=[name for name, _ in attachments_to_process],
+            conversion_time=round(time.perf_counter() - start_time, 4),
         )
         primary_md.write_text(
             serialize_document(meta, email_full_text, extra_frontmatter={"original_path": str(email_path.resolve())}),
@@ -532,6 +540,7 @@ class DirectoryConverter:
         dst_container: Path,
     ) -> None:
         """Convert an Outlook .msg file with attachments into a container directory."""
+        start_time = time.perf_counter()
         import extract_msg
 
         msg = extract_msg.Message(str(msg_path))
@@ -584,6 +593,7 @@ class DirectoryConverter:
             extracted_text=full_text,
             email_headers=email_headers,
             contained_files=[name for name, _ in att_files],
+            conversion_time=round(time.perf_counter() - start_time, 4),
         )
         primary_md.write_text(
             serialize_document(meta, full_text, extra_frontmatter={"original_path": str(msg_path.resolve())}),

@@ -30,6 +30,7 @@ A modern, high-performance command-line tool and Python library managed with **u
     - `filename`: Base name of original file.
     - `file_size_bytes`: Original file size.
     - `sha256_hash`: SHA-256 checksum.
+    - `conversion_time`: Duration of file conversion in seconds (float).
     - `conversion_date`: ISO-8601 timestamp of conversion.
     - Container member indicators (`archive_member` or `attachment_name`).
 - **AI-Powered Media Processing (Ollama & Media)**:
@@ -38,7 +39,7 @@ A modern, high-performance command-line tool and Python library managed with **u
   - **Video**: Samples keyframes using ffmpeg and summarizes scenes with Ollama vision models.
   - **Configuration File**: Automatically creates `directory2md.yaml` in the destination directory on first run to configure AI models, prompts, and settings.
 - **Rich Document Parsing powered by `markdown-it-py`**:
-  - Robust parser registry covering PDF, DOCX, XLSX, ODS, ODT, ODP, PPTX, Images (embedded as base64 Data URIs), Audio, Video, EML, Outlook MSG, ZIP, TAR, and plain text/code formats with multi-encoding support (UTF-8, Latin-1, CP1252).
+  - Robust parser registry covering PDF, DOCX, XLSX, ODS, ODT, ODP, PPTX, Images, Audio, Video, EML, Outlook MSG, ZIP, TAR, and plain text/code formats with multi-encoding support (UTF-8, Latin-1, CP1252).
   - Validates and sanitizes Markdown output using `markdown-it-py`.
 
 ---
@@ -207,6 +208,8 @@ file_size_bytes: 489210
 sha256_hash: a1b2c3d4e5f6...
 word_count: 1420
 origin_type: file
+ia: false
+conversion_time: 0.042
 conversion_date: '2026-10-13T07:15:00'
 original_path: /data/documents/financial_report.pdf
 ---
@@ -225,6 +228,8 @@ archive_member: subfolder/data.csv
 filename: data.csv
 file_size_bytes: 1042
 sha256_hash: f0e1d2c3...
+ia: false
+conversion_time: 0.015
 conversion_date: '2026-10-13T07:15:00'
 ---
 ```

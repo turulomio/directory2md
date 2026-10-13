@@ -45,6 +45,9 @@ def test_convert_directory_basic(tmp_path: Path):
     assert fm["filename"] == "hello.txt"
     assert "Hello world" in body
     assert "conversion_date" in fm
+    assert "conversion_time" in fm
+    assert isinstance(fm["conversion_time"], (int, float))
+    assert fm["conversion_time"] >= 0
     assert fm["original_path"] == str(f1.resolve())
 
 
