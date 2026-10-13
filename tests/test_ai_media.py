@@ -530,4 +530,64 @@ def test_prepare_image_for_vision():
     assert prepare_image_for_vision(mock_bytes) == mock_bytes
 
 
+def test_is_text_in_english():
+    from directory2md.ai_client import is_text_in_english
+
+    # English text when target is Spanish
+    eng_text = "The image shows a modern laptop on a wooden desk with a white coffee mug."
+    assert is_text_in_english(eng_text, "es") is True
+
+    # Spanish text when target is Spanish
+    es_text = "La imagen muestra un portátil moderno sobre un escritorio de madera con una taza de café blanca."
+    assert is_text_in_english(es_text, "es") is False
+
+    # Short texts or English target
+    assert is_text_in_english("ok", "es") is False
+    assert is_text_in_english(eng_text, "en") is False
+
+
+def test_vision_system_prompt_and_auto_translation_fallback():
+    import json
+    from unittest.mock import MagicMock
+
+    ai_cfg = AIConfig(enabled=True, vision_model="llama3.2-vision", language="es")
+    captured_payloads = []
+
+    def mock_urlopen(req, timeout):
+        payload = json.loads(req.data.decode("utf-8"))
+        captured_payloads.append(payload)
+
+        # First call is vision query, returns English text
+        # Second call is translation query, returns Spanish translation
+        if len(captured_payloads) == 1:
+            resp_data = {"response": "The image shows a blue car parked on the street with trees in the background."}
+        else:
+            resp_data = {"response": "La imagen muestra un coche azul aparcado en la calle con árboles al fondo."}
+
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = json.dumps(resp_data).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        result = query_ollama_vision(
+            b"dummy_image_bytes",
+            prompt="Provide a comprehensive and detailed description of the contents and context of this image.",
+            ai_config=ai_cfg,
+        )
+
+        # 1. Vision payload had system prompt in Spanish
+        assert len(captured_payloads) == 2
+        assert "system" in captured_payloads[0]
+        assert "español" in captured_payloads[0]["system"].lower()
+        assert "Describe de forma exhaustiva" in captured_payloads[0]["prompt"]
+
+        # 2. Second payload was translation request
+        assert "Translate the following text into Spanish" in captured_payloads[1]["prompt"]
+
+        # 3. Final result returned is translated Spanish text
+        assert "La imagen muestra un coche azul" in result
+
+
 

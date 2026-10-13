@@ -46,6 +46,197 @@ LOCALIZED_IMAGE_DESCRIPTION_PROMPTS: dict[str, str] = {
     "ca": "Descriu de manera exhaustiva i detallada el contingut i el context d'aquesta imatge en català.",
 }
 
+LOCALIZED_VIDEO_SUMMARY_PROMPTS: dict[str, str] = {
+    "es": "Analiza estos fotogramas extraídos del vídeo y resume la escena, las acciones y la información visual clave en español.",
+    "fr": "Analysez ces images clés extraites de la vidéo et résumez la scène, les actions et les informations visuelles clés en français.",
+    "de": "Analysieren Sie diese aus dem Video extrahierten Keyframes und fassen Sie die Szene, Aktionen und visuellen Schlüsselinformationen auf Deutsch zusammen.",
+    "it": "Analizza questi fotogrammi chiave estratti dal video e riassumi la scena, le azioni e le informazioni visive chiave in italiano.",
+    "pt": "Analise estes quadros-chave extraídos do vídeo e resuma a cena, as ações e as principais informações visuais em português.",
+    "ca": "Analitza aquests fotogrames clau extrets del vídeo i resumeix l'escena, les accions i la informació visual clau en català.",
+}
+
+LOCALIZED_VISION_SYSTEM_PROMPTS: dict[str, str] = {
+    "es": (
+        "Eres un asistente de inteligencia artificial experto en visión. "
+        "Tu labor es describir imágenes o vídeos detalladamente y de forma exhaustiva EXCLUSIVAMENTE en español. "
+        "Está terminantemente prohibido responder en inglés. Todo tu texto DEBE estar en español."
+    ),
+    "fr": (
+        "Vous êtes un assistant visuel IA. Votre tâche est de décrire les images EXCLUSIVEMENT en français. "
+        "Il est strictement interdit de répondre en anglais. Tout votre texte DOIT être en français."
+    ),
+    "de": (
+        "Sie sind ein KI-Bildassistent. Ihre Aufgabe ist es, Bilder AUSSCHLIESSLICH auf Deutsch zu beschreiben. "
+        "Es ist strengstens verboten, auf Englisch zu antworten. Ihr gesamter Text MUSS auf Deutsch sein."
+    ),
+    "it": (
+        "Sei un assistente visivo IA. Il tuo compito è descrivere le immagini ESCLUSIVAMENTE in italiano. "
+        "È severamente vietato rispondere in inglese. Tutto il tuo testo DEVE essere in italiano."
+    ),
+    "pt": (
+        "Você é um assistente visual de IA. Sua tarefa é descrever imagens EXCLUSIVAMENTE em português. "
+        "É estritamente proibido responder em inglês. Todo o seu texto DEVE ser em português."
+    ),
+    "ca": (
+        "Ets un assistent visual d'IA. La teva tasca és descriure imatges EXCLUSIVAMENT en català. "
+        "Està totalment prohibit respondre en anglès. Tot el teu text HA D'ESTAR en català."
+    ),
+}
+
+LOCALIZED_USER_DIRECTIVES: dict[str, str] = {
+    "es": "\nIMPORTANTE: Escribe toda la respuesta obligatoriamente y exclusivamente en español. No uses el idioma inglés.",
+    "fr": "\nIMPORTANT: Écrivez toute la réponse obligatoirement et exclusivement en français. N'utilisez pas l'anglais.",
+    "de": "\nWICHTIG: Schreiben Sie die gesamte Antwort ausschließlich auf Deutsch. Verwenden Sie kein Englisch.",
+    "it": "\nIMPORTANTE: Scrivi l'intera risposta esclusivamente in italiano. Non usare l'inglese.",
+    "pt": "\nIMPORTANTE: Escreva toda a resposta obrigatoriamente e exclusivamente em português. Não use o inglês.",
+    "ca": "\nIMPORTANT: Escriu tota la resposta exclusivament en català. No facis servir l'anglès.",
+}
+
+ENGLISH_STOPWORDS = {
+    "the", "is", "are", "was", "were", "this", "that", "these", "those",
+    "with", "and", "of", "in", "on", "at", "to", "for", "from", "by",
+    "an", "shows", "depicts", "image", "picture", "photo", "features",
+    "background", "foreground", "there", "has", "have", "can", "see",
+    "appears", "holding", "wearing", "standing", "sitting", "looking",
+}
+
+SPANISH_STOPWORDS = {
+    "el", "la", "los", "las", "un", "una", "unos", "unas", "es", "son",
+    "era", "eran", "está", "están", "este", "esta", "estos", "estas",
+    "con", "y", "de", "en", "para", "por", "imagen", "foto",
+    "fotografía", "muestra", "representa", "aparece", "fondo", "primer",
+    "plano", "hay", "tiene", "tienen", "puede", "ver", "observa", "observar",
+    "sosteniendo", "llevando", "vistiendo", "persona", "personas", "se", "del", "al",
+}
+
+FRENCH_STOPWORDS = {
+    "le", "la", "les", "un", "une", "des", "est", "sont", "cette", "ce",
+    "ces", "avec", "et", "de", "du", "dans", "sur", "pour", "par",
+    "image", "photo", "montre", "affiche", "fond", "il", "y", "a",
+}
+
+GERMAN_STOPWORDS = {
+    "der", "die", "das", "ein", "eine", "einer", "ist", "sind", "mit",
+    "und", "von", "in", "auf", "für", "bild", "foto", "zeigt", "hintergrund",
+}
+
+ITALIAN_STOPWORDS = {
+    "il", "lo", "la", "i", "gli", "le", "un", "uno", "una", "è", "sono",
+    "questo", "questa", "con", "e", "di", "in", "su", "per", "immagine",
+    "foto", "mostra", "sfondo", "c'è", "ci",
+}
+
+PORTUGUESE_STOPWORDS = {
+    "o", "a", "os", "as", "um", "uma", "uns", "umas", "é", "são",
+    "este", "esta", "com", "e", "de", "do", "da", "em", "no", "na",
+    "para", "por", "imagen", "foto", "mostra", "fundo", "há",
+}
+
+CATALAN_STOPWORDS = {
+    "el", "la", "els", "les", "un", "una", "uns", "unes", "és", "són",
+    "aquest", "aquesta", "amb", "i", "de", "del", "en", "per", "imatge",
+    "foto", "mostra", "fons", "hi", "ha",
+}
+
+
+def is_text_in_english(text: str, target_lang: str) -> bool:
+    """Check if generated response is predominantly in English instead of target language."""
+    if not text:
+        return False
+    clean_target = target_lang.strip().lower()
+    if clean_target in ("en", "english"):
+        return False
+
+    words = [w.strip(".,;:!?\"'()[]{}«»—-_/\n\t").lower() for w in text.split()]
+    words = [w for w in words if w]
+    if len(words) < 3:
+        return False
+
+    eng_count = sum(1 for w in words if w in ENGLISH_STOPWORDS)
+
+    target_stopwords_map = {
+        "es": SPANISH_STOPWORDS,
+        "fr": FRENCH_STOPWORDS,
+        "de": GERMAN_STOPWORDS,
+        "it": ITALIAN_STOPWORDS,
+        "pt": PORTUGUESE_STOPWORDS,
+        "ca": CATALAN_STOPWORDS,
+    }
+    target_words = target_stopwords_map.get(clean_target)
+
+    if target_words:
+        target_count = sum(1 for w in words if w in target_words)
+        if eng_count >= 2 and target_count == 0:
+            return True
+        if eng_count >= 3 and eng_count > target_count:
+            return True
+    else:
+        if eng_count >= 4 and (eng_count / len(words)) > 0.15:
+            return True
+
+    return False
+
+
+def translate_text_with_ollama(
+    text: str,
+    target_lang: str,
+    ai_config: AIConfig,
+) -> Optional[str]:
+    """Translate text into target language using Ollama model.
+
+    Args:
+        text: Text to translate.
+        target_lang: Target language code (e.g. 'es', 'fr').
+        ai_config: AI configuration.
+
+    Returns:
+        Translated text or None if translation failed.
+    """
+    if not text.strip() or not ai_config.vision_model:
+        return None
+
+    lang_name = get_language_name(target_lang)
+    endpoint = f"{ai_config.ollama_url.rstrip('/')}/api/generate"
+
+    prompt = (
+        f"Translate the following text into {lang_name}. "
+        f"Provide ONLY the direct translation in {lang_name}, without any introductory comments, "
+        f"explanations, or surrounding quotes:\n\n{text.strip()}"
+    )
+    system = (
+        f"You are a professional translator. You must translate the user's text into {lang_name}. "
+        f"Output exclusively the translation in {lang_name}."
+    )
+
+    payload = {
+        "model": ai_config.vision_model,
+        "prompt": prompt,
+        "system": system,
+        "stream": False,
+        "options": {
+            "temperature": 0.2,
+        },
+    }
+
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            endpoint,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=min(30, ai_config.timeout_seconds)) as resp:
+            if resp.status == 200:
+                body = json.loads(resp.read().decode("utf-8"))
+                translated = str(body.get("response", "")).strip()
+                if translated:
+                    return translated
+    except Exception as exc:
+        logger.warning("Failed translating text to %s with Ollama: %s", target_lang, exc)
+
+    return None
+
 
 def get_language_name(code_or_name: str) -> str:
     """Resolve ISO code or language string to descriptive language name."""
@@ -213,20 +404,37 @@ def query_ollama_vision(
     endpoint = f"{ai_config.ollama_url.rstrip('/')}/api/generate"
 
     full_prompt = prompt
+    system_prompt = None
+
     if ai_config.language and "verbatim" not in prompt.lower():
         lang_code = ai_config.language.strip().lower()
         lang_name = get_language_name(ai_config.language)
 
-        if "comprehensive and detailed description of the contents and context of this image" in prompt.lower():
+        if (
+            "comprehensive and detailed description of the contents and context of this image" in prompt.lower()
+            or "describe" in prompt.lower()
+            or "description" in prompt.lower()
+        ):
             localized = LOCALIZED_IMAGE_DESCRIPTION_PROMPTS.get(lang_code)
             if localized:
                 full_prompt = localized
 
+        user_directive = LOCALIZED_USER_DIRECTIVES.get(
+            lang_code,
+            f"\nIMPORTANT: Respond entirely in {lang_name}. The entire description must be written in {lang_name}."
+        )
+
         full_prompt = (
             f"{full_prompt}\n"
-            f"Please respond in language: {ai_config.language}.\n"
-            f"IMPORTANT: Respond entirely in {lang_name}. The entire description must be written in {lang_name}."
+            f"Please respond in language: {ai_config.language}."
+            f"{user_directive}"
         )
+
+        if lang_code not in ("en", "english"):
+            system_prompt = LOCALIZED_VISION_SYSTEM_PROMPTS.get(
+                lang_code,
+                f"You are an expert visual AI assistant. You must describe images EXCLUSIVELY in {lang_name}. Never respond in English. All output must be in {lang_name}."
+            )
 
     payload = {
         "model": ai_config.vision_model,
@@ -234,6 +442,8 @@ def query_ollama_vision(
         "images": [b64_image],
         "stream": False,
     }
+    if system_prompt:
+        payload["system"] = system_prompt
 
     try:
         data = json.dumps(payload).encode("utf-8")
@@ -246,7 +456,24 @@ def query_ollama_vision(
         with urllib.request.urlopen(req, timeout=ai_config.timeout_seconds) as resp:
             if resp.status == 200:
                 body = json.loads(resp.read().decode("utf-8"))
-                return str(body.get("response", "")).strip()
+                response_text = str(body.get("response", "")).strip()
+                if (
+                    response_text
+                    and ai_config.language
+                    and "verbatim" not in prompt.lower()
+                    and ai_config.language.strip().lower() not in ("en", "english")
+                ):
+                    target_code = ai_config.language.strip().lower()
+                    if is_text_in_english(response_text, target_code):
+                        target_name = get_language_name(ai_config.language)
+                        logger.info(
+                            "Ollama vision model generated response in English instead of %s; translating automatically...",
+                            target_name,
+                        )
+                        translated = translate_text_with_ollama(response_text, target_code, ai_config)
+                        if translated:
+                            return translated
+                return response_text
             raise AIError(f"Ollama vision query returned HTTP {resp.status}")
     except urllib.error.HTTPError as exc:
         if exc.code == 504:
@@ -336,13 +563,36 @@ def query_ollama_multiple_images(
     endpoint = f"{ai_config.ollama_url.rstrip('/')}/api/generate"
 
     full_prompt = prompt
+    system_prompt = None
+
     if ai_config.language:
+        lang_code = ai_config.language.strip().lower()
         lang_name = get_language_name(ai_config.language)
-        full_prompt = (
-            f"{prompt}\n"
-            f"Please respond in language: {ai_config.language}.\n"
-            f"IMPORTANT: Respond entirely in {lang_name}. The entire summary must be written in {lang_name}."
+
+        if (
+            "analyze these extracted video keyframes" in prompt.lower()
+            or "summarize" in prompt.lower()
+        ):
+            localized = LOCALIZED_VIDEO_SUMMARY_PROMPTS.get(lang_code)
+            if localized:
+                full_prompt = localized
+
+        user_directive = LOCALIZED_USER_DIRECTIVES.get(
+            lang_code,
+            f"\nIMPORTANT: Respond entirely in {lang_name}. The entire summary must be written in {lang_name}."
         )
+
+        full_prompt = (
+            f"{full_prompt}\n"
+            f"Please respond in language: {ai_config.language}."
+            f"{user_directive}"
+        )
+
+        if lang_code not in ("en", "english"):
+            system_prompt = LOCALIZED_VISION_SYSTEM_PROMPTS.get(
+                lang_code,
+                f"You are an expert visual AI assistant. You must summarize video keyframes EXCLUSIVELY in {lang_name}. Never respond in English. All output must be in {lang_name}."
+            )
 
     payload = {
         "model": ai_config.vision_model,
@@ -350,6 +600,8 @@ def query_ollama_multiple_images(
         "images": b64_images,
         "stream": False,
     }
+    if system_prompt:
+        payload["system"] = system_prompt
 
     try:
         data = json.dumps(payload).encode("utf-8")
@@ -362,7 +614,23 @@ def query_ollama_multiple_images(
         with urllib.request.urlopen(req, timeout=ai_config.timeout_seconds) as resp:
             if resp.status == 200:
                 body = json.loads(resp.read().decode("utf-8"))
-                return str(body.get("response", "")).strip()
+                response_text = str(body.get("response", "")).strip()
+                if (
+                    response_text
+                    and ai_config.language
+                    and ai_config.language.strip().lower() not in ("en", "english")
+                ):
+                    target_code = ai_config.language.strip().lower()
+                    if is_text_in_english(response_text, target_code):
+                        target_name = get_language_name(ai_config.language)
+                        logger.info(
+                            "Ollama video summary generated response in English instead of %s; translating automatically...",
+                            target_name,
+                        )
+                        translated = translate_text_with_ollama(response_text, target_code, ai_config)
+                        if translated:
+                            return translated
+                return response_text
             raise AIError(f"Ollama multi-image vision query returned HTTP {resp.status}")
     except urllib.error.HTTPError as exc:
         if exc.code == 504:
