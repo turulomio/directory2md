@@ -186,3 +186,138 @@ def test_container_error_cleans_entire_directory(tmp_path: Path):
     assert not container_dir.exists()
     assert len(list(dst.rglob("*.md"))) == 0
 
+
+def test_docx_with_and_without_images_container_conversion(tmp_path: Path):
+    src = tmp_path / "src"
+    dst = tmp_path / "dst"
+    src.mkdir()
+
+    # 1. DOCX with embedded images -> container directory
+    docx_with_img = src / "document_with_img.docx"
+    with zipfile.ZipFile(docx_with_img, "w") as zf:
+        zf.writestr("word/document.xml", "<w:document><w:body><w:p><w:r><w:t>Doc text</w:t></w:r></w:p></w:body></w:document>")
+        zf.writestr("word/media/image1.png", b"\x89PNG\r\n\x1a\nfake_image_data")
+
+    # 2. DOCX without images -> regular file
+    docx_no_img = src / "plain.docx"
+    with zipfile.ZipFile(docx_no_img, "w") as zf:
+        zf.writestr("word/document.xml", "<w:document><w:body><w:p><w:r><w:t>Plain text</w:t></w:r></w:p></w:body></w:document>")
+
+    stats = convert_directory(src, dst)
+    assert stats.converted == 2
+
+    # Container check for document_with_img
+    container_dir = dst / "document_with_img.docx.directory2md"
+    assert container_dir.is_dir()
+    primary_md = container_dir / "document_with_img.docx.directory2md.md"
+    assert primary_md.is_file()
+    assert "image1.png" in primary_md.read_text(encoding="utf-8")
+    member_md = container_dir / "image1.png.directory2md.md"
+    assert member_md.is_file()
+
+    # Regular single file check for plain.docx
+    assert (dst / "plain.docx.directory2md.md").is_file()
+    assert not (dst / "plain.docx.directory2md").exists()
+
+
+def test_pptx_with_and_without_images_container_conversion(tmp_path: Path):
+    src = tmp_path / "src_ppt"
+    dst = tmp_path / "dst_ppt"
+    src.mkdir()
+
+    # 1. PPTX with embedded images
+    pptx_with_img = src / "slides_img.pptx"
+    with zipfile.ZipFile(pptx_with_img, "w") as zf:
+        zf.writestr("ppt/presentation.xml", "<p:presentation/>")
+        zf.writestr("ppt/slides/slide1.xml", "<p:sld><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>Slide 1</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>")
+        zf.writestr("ppt/media/photo.jpg", b"\xff\xd8\xff\xe0fake_jpeg_data")
+
+    # 2. PPTX without images
+    pptx_no_img = src / "slides_plain.pptx"
+    with zipfile.ZipFile(pptx_no_img, "w") as zf:
+        zf.writestr("ppt/presentation.xml", "<p:presentation/>")
+        zf.writestr("ppt/slides/slide1.xml", "<p:sld><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>Slide plain</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>")
+
+    stats = convert_directory(src, dst)
+    assert stats.converted == 2
+
+    container_dir = dst / "slides_img.pptx.directory2md"
+    assert container_dir.is_dir()
+    assert (container_dir / "slides_img.pptx.directory2md.md").is_file()
+    assert (container_dir / "photo.jpg.directory2md.md").is_file()
+
+    # Plain file
+    assert (dst / "slides_plain.pptx.directory2md.md").is_file()
+    assert not (dst / "slides_plain.pptx.directory2md").exists()
+
+
+def test_xlsx_and_opendocument_with_images_container_conversion(tmp_path: Path):
+    src = tmp_path / "src_office"
+    dst = tmp_path / "dst_office"
+    src.mkdir()
+
+    # XLSX with images
+    xlsx_img = src / "financial.xlsx"
+    with zipfile.ZipFile(xlsx_img, "w") as zf:
+        zf.writestr("xl/workbook.xml", "<workbook/>")
+        zf.writestr("xl/media/chart.png", b"\x89PNG\r\n\x1a\nchart_data")
+
+    # ODT with images
+    odt_img = src / "report.odt"
+    with zipfile.ZipFile(odt_img, "w") as zf:
+        zf.writestr("content.xml", "<office:document-content/>")
+        zf.writestr("Pictures/figure.png", b"\x89PNG\r\n\x1a\nfigure_data")
+
+    stats = convert_directory(src, dst)
+    assert stats.converted == 2
+
+    # XLSX container
+    xlsx_container = dst / "financial.xlsx.directory2md"
+    assert xlsx_container.is_dir()
+    assert (xlsx_container / "financial.xlsx.directory2md.md").is_file()
+    assert (xlsx_container / "chart.png.directory2md.md").is_file()
+
+    # ODT container
+    odt_container = dst / "report.odt.directory2md"
+    assert odt_container.is_dir()
+    assert (odt_container / "report.odt.directory2md.md").is_file()
+    assert (odt_container / "figure.png.directory2md.md").is_file()
+
+
+def test_markdown_with_embedded_images_container_conversion(tmp_path: Path):
+    src = tmp_path / "src_md"
+    dst = tmp_path / "dst_md"
+    src.mkdir()
+
+    # Minimal 1x1 png base64
+    b64_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+
+    md_with_img = src / "article.md"
+    md_with_img.write_text(
+        f"# Article with Data URI\n\nInline chart:\n![Chart](data:image/png;base64,{b64_png})\n\nEnd text.",
+        encoding="utf-8",
+    )
+
+    md_no_img = src / "simple.md"
+    md_no_img.write_text("# Simple Article\n\nNo embedded images here.", encoding="utf-8")
+
+    stats = convert_directory(src, dst)
+    assert stats.converted == 2
+
+    # Article container
+    container_dir = dst / "article.md.directory2md"
+    assert container_dir.is_dir()
+    primary_md = container_dir / "article.md.directory2md.md"
+    assert primary_md.is_file()
+    text = primary_md.read_text(encoding="utf-8")
+    assert "data:image" not in text
+    assert "image_001.png" in text
+
+    member_md = container_dir / "image_001.png.directory2md.md"
+    assert member_md.is_file()
+
+    # Simple plain markdown
+    assert (dst / "simple.md.directory2md.md").is_file()
+    assert not (dst / "simple.md.directory2md").exists()
+
+

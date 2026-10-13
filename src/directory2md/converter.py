@@ -325,6 +325,8 @@ class DirectoryConverter:
                 self._convert_html_container(src_file, rel_file, dst_container)
             elif is_pdf_file(src_file):
                 self._convert_pdf_container(src_file, rel_file, dst_container)
+            else:
+                self._convert_embedded_images_container(src_file, rel_file, dst_container)
 
             stats.converted += 1
         else:
@@ -568,6 +570,86 @@ class DirectoryConverter:
                     member_dst_file,
                     extra_frontmatter={
                         "original_path": str(pdf_path.resolve()),
+                        "archive_member": img.filename,
+                    },
+                )
+
+    def _convert_embedded_images_container(
+        self,
+        src_file: Path,
+        rel_file: Path,
+        dst_container: Path,
+    ) -> None:
+        """Convert a document containing embedded images into a container directory.
+
+        Creates <name>.directory2md/ with:
+        - Primary summary: <name>.<ext>.directory2md.md with document text and image links.
+        - Extracted images: image1.png.directory2md.md, etc., parsed with ImageParser.
+        """
+        start_time = time.perf_counter()
+        suffix = src_file.suffix.lower()
+
+        from directory2md.parsers.embedded_images import (
+            extract_docx_images,
+            extract_pptx_images,
+            extract_xlsx_images,
+            extract_opendocument_images,
+            extract_markdown_embedded_images,
+        )
+
+        extracted_images = []
+        custom_content = None
+
+        if suffix == ".docx":
+            extracted_images = extract_docx_images(src_file)
+        elif suffix in (".pptx", ".potx", ".ppsx"):
+            extracted_images = extract_pptx_images(src_file)
+        elif suffix == ".xlsx":
+            extracted_images = extract_xlsx_images(src_file)
+        elif suffix in (".odt", ".odp", ".ods"):
+            extracted_images = extract_opendocument_images(src_file)
+        elif suffix in (".md", ".markdown"):
+            custom_content, extracted_images = extract_markdown_embedded_images(src_file)
+
+        parser = get_parser_for_file(src_file, config=self.config)
+        metadata, content = parser.parse(src_file)
+        if custom_content is not None:
+            content = custom_content
+
+        metadata.filepath = str(src_file.resolve())
+        metadata.relative_path = str(rel_file)
+        metadata.conversion_time = round(time.perf_counter() - start_time, 4)
+
+        # Append embedded images list to content if not already present
+        if extracted_images and "## Embedded Images" not in content:
+            img_links = [f"- [{img.filename}]({img.filename}{MD_SUFFIX})" for img in extracted_images]
+            content = f"{content.strip()}\n\n## Embedded Images\n" + "\n".join(img_links)
+
+        # 1. Primary summary file: <file_name>.directory2md.md
+        primary_md = dst_container / f"{src_file.name}{MD_SUFFIX}"
+        primary_content = serialize_document(
+            metadata,
+            content,
+            extra_frontmatter={"original_path": str(src_file.resolve()), "is_archive_root": True},
+        )
+        primary_md.write_text(primary_content, encoding="utf-8", errors="replace")
+
+        # 2. Extract each embedded image and convert using ImageParser
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            for img in extracted_images:
+                temp_img_file = tmp_path / img.filename
+                temp_img_file.write_bytes(img.raw_bytes)
+
+                member_dst_file = dst_container / f"{img.filename}{MD_SUFFIX}"
+                member_dst_file.parent.mkdir(parents=True, exist_ok=True)
+
+                self._convert_single_file(
+                    temp_img_file,
+                    Path(img.filename),
+                    member_dst_file,
+                    extra_frontmatter={
+                        "original_path": str(src_file.resolve()),
                         "archive_member": img.filename,
                     },
                 )

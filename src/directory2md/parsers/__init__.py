@@ -145,26 +145,79 @@ def is_pdf_file(filepath: Path) -> bool:
     return filepath.suffix.lower() == ".pdf"
 
 
+def is_docx_file(filepath: Path) -> bool:
+    """Check if the given file is a Microsoft Word (.docx) document."""
+    return filepath.suffix.lower() == ".docx"
+
+
+def is_pptx_file(filepath: Path) -> bool:
+    """Check if the given file is a Microsoft PowerPoint (.pptx, .potx, .ppsx) presentation."""
+    return filepath.suffix.lower() in (".pptx", ".potx", ".ppsx")
+
+
+def is_xlsx_file(filepath: Path) -> bool:
+    """Check if the given file is an Excel spreadsheet (.xlsx)."""
+    return filepath.suffix.lower() == ".xlsx"
+
+
+def is_opendocument_file(filepath: Path) -> bool:
+    """Check if the given file is an OpenDocument format (.odt, .odp, .ods)."""
+    return filepath.suffix.lower() in (".odt", ".odp", ".ods")
+
+
+def is_markdown_file(filepath: Path) -> bool:
+    """Check if the given file is a Markdown document (.md, .markdown)."""
+    return filepath.suffix.lower() in (".md", ".markdown")
+
+
 def is_container_file(filepath: Path) -> bool:
     """Determine if a file behaves as a container (directory destination).
 
-    Archives (.zip, .tar.gz, etc.) are always containers.
-    Emails (.eml, .msg) are containers only if they contain attachments.
-    HTML/web pages (.html, .htm, .xhtml, .mhtml) are containers only if they contain embedded images.
-    PDF documents (.pdf) are containers only if they contain embedded images.
+    Containers include:
+    - Archives (.zip, .tar.gz, etc.)
+    - Emails (.eml, .msg) with attachments
+    - Documents with embedded images:
+      - PDF (.pdf) with embedded images
+      - HTML/web pages (.html, .htm, .xhtml, .mhtml) with embedded images
+      - Word (.docx) with embedded images
+      - PowerPoint (.pptx, .potx, .ppsx) with embedded images
+      - Excel (.xlsx) with embedded images
+      - OpenDocument (.odt, .odp, .ods) with embedded images
+      - Markdown (.md, .markdown) with embedded images
     """
     if is_archive_file(filepath):
         return True
     if is_email_file(filepath):
         return email_has_attachments(filepath)
-    if is_html_file(filepath):
+    suffix = filepath.suffix.lower()
+    if suffix in (".html", ".htm", ".xhtml", ".mhtml"):
         from directory2md.parsers.html_parser import html_has_embedded_images
 
         return html_has_embedded_images(filepath)
-    if is_pdf_file(filepath):
+    if suffix == ".pdf":
         from directory2md.parsers.pdf_parser import pdf_has_images
 
         return pdf_has_images(filepath)
+    if suffix == ".docx":
+        from directory2md.parsers.embedded_images import docx_has_images
+
+        return docx_has_images(filepath)
+    if suffix in (".pptx", ".potx", ".ppsx"):
+        from directory2md.parsers.embedded_images import pptx_has_images
+
+        return pptx_has_images(filepath)
+    if suffix == ".xlsx":
+        from directory2md.parsers.embedded_images import xlsx_has_images
+
+        return xlsx_has_images(filepath)
+    if suffix in (".odt", ".odp", ".ods"):
+        from directory2md.parsers.embedded_images import opendocument_has_images
+
+        return opendocument_has_images(filepath)
+    if suffix in (".md", ".markdown"):
+        from directory2md.parsers.embedded_images import markdown_has_embedded_images
+
+        return markdown_has_embedded_images(filepath)
     return False
 
 

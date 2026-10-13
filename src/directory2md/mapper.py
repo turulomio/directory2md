@@ -27,6 +27,16 @@ CONTAINER_EXT_PARTS = (
     ".xhtml",
     ".mhtml",
     ".pdf",
+    ".docx",
+    ".pptx",
+    ".potx",
+    ".ppsx",
+    ".xlsx",
+    ".odt",
+    ".odp",
+    ".ods",
+    ".md",
+    ".markdown",
 )
 
 
