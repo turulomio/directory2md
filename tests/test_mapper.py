@@ -109,3 +109,35 @@ def test_mapper_frontmatter_resolution(tmp_path: Path):
     # Should read frontmatter to identify original path
     orig = get_original_path(md_file, src_dir, dst_dir)
     assert orig == real_source
+
+
+def test_mapper_html_container(tmp_path: Path):
+    src_dir = tmp_path / "src"
+    dst_dir = tmp_path / "dst"
+    src_dir.mkdir()
+    dst_dir.mkdir()
+
+    # 1. HTML with embedded images -> container
+    html_with_img = src_dir / "page.html"
+    html_with_img.write_text(
+        '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=">',
+        encoding="utf-8",
+    )
+
+    md_dir = get_md_path(html_with_img, src_dir, dst_dir)
+    assert md_dir == dst_dir / "page.html.directory2md"
+
+    member_p = dst_dir / "page.html.directory2md" / "image_001.png.directory2md.md"
+    orig = get_original_path(member_p, src_dir, dst_dir)
+    assert orig == html_with_img
+
+    details = resolve_mapping_details(member_p, src_dir, dst_dir)
+    assert details.is_container_member is True
+    assert details.container_original_path == html_with_img
+
+    # 2. HTML without images -> regular file
+    html_plain = src_dir / "plain.html"
+    html_plain.write_text("<p>Hello</p>", encoding="utf-8")
+
+    plain_md = get_md_path(html_plain, src_dir, dst_dir)
+    assert plain_md == dst_dir / "plain.html.directory2md.md"

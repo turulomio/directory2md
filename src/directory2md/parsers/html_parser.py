@@ -1,11 +1,13 @@
-"""HTML and Monolith web page parser for directory2md."""
-
-from __future__ import annotations
-
+import base64
+from dataclasses import dataclass
+from email import policy
+from email.parser import BytesParser
 import logging
+import mimetypes
 from pathlib import Path
 import re
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
+import urllib.parse
 
 from bs4 import BeautifulSoup, Comment
 from markdownify import MarkdownConverter
@@ -15,6 +17,186 @@ from directory2md.models import DocumentMetadata
 from directory2md.parsers.base import BaseParser
 
 logger = logging.getLogger("directory2md.parsers.html")
+
+MIME_TO_EXT = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/svg+xml": ".svg",
+    "image/bmp": ".bmp",
+    "image/x-icon": ".ico",
+    "image/vnd.microsoft.icon": ".ico",
+    "image/tiff": ".tif",
+}
+
+
+@dataclass
+class ExtractedEmbeddedImage:
+    """An image extracted from an HTML or MHTML container document."""
+
+    index: int
+    filename: str
+    raw_bytes: bytes
+    alt: str = ""
+    mime_type: str = "image/png"
+
+
+def html_has_embedded_images(filepath: Path) -> bool:
+    """Check if an HTML, XHTML, or MHTML document contains embedded images.
+
+    Fast pre-scans binary contents for data URI or MIME image declarations,
+    then confirms if at least one embedded image exists.
+    """
+    try:
+        suffix = filepath.suffix.lower()
+        raw = filepath.read_bytes()
+
+        if suffix == ".mhtml":
+            return (
+                b"Content-Type: image/" in raw
+                or b"content-type: image/" in raw
+                or b"data:image/" in raw
+            )
+
+        # HTML / XHTML fast pre-scan
+        if b"data:image/" not in raw:
+            return False
+
+        # Verify occurrence inside <img> tags
+        text = raw.decode("utf-8", errors="ignore")
+        soup = BeautifulSoup(text, "html.parser")
+        for img in soup.find_all("img"):
+            src = img.get("src", "")
+            if src and src.strip().lower().startswith("data:image/"):
+                return True
+        return False
+    except Exception:
+        return False
+
+
+def extract_html_embedded_images(
+    raw_bytes: bytes,
+    suffix: str = ".html",
+) -> Tuple[str, List[ExtractedEmbeddedImage]]:
+    """Extract embedded images from HTML or MHTML and replace data URIs with relative image filenames.
+
+    Args:
+        raw_bytes: Raw file bytes.
+        suffix: File extension (e.g. '.html', '.mhtml').
+
+    Returns:
+        Tuple of (modified_html_string, list_of_extracted_images).
+    """
+    extracted: List[ExtractedEmbeddedImage] = []
+
+    if suffix.lower() == ".mhtml":
+        try:
+            msg = BytesParser(policy=policy.default).parsebytes(raw_bytes)
+            html_content = ""
+            # Locate HTML body part
+            for part in msg.walk():
+                if part.get_content_type() == "text/html":
+                    try:
+                        html_content = part.get_content()
+                    except Exception:
+                        payload = part.get_payload(decode=True)
+                        if payload:
+                            html_content = payload.decode("utf-8", errors="ignore")
+                    break
+
+            if not html_content:
+                html_content = raw_bytes.decode("utf-8", errors="ignore")
+
+            idx = 1
+            for part in msg.walk():
+                if part.get_content_maintype() == "image":
+                    c_type = part.get_content_type().lower()
+                    ext = MIME_TO_EXT.get(c_type, ".png")
+                    filename = part.get_filename() or f"image_{idx:03d}{ext}"
+                    # Normalize filename to safe member name
+                    clean_filename = f"image_{idx:03d}{ext}"
+                    try:
+                        img_bytes = part.get_content()
+                        if isinstance(img_bytes, str):
+                            img_bytes = img_bytes.encode("utf-8")
+                    except Exception:
+                        img_bytes = part.get_payload(decode=True) or b""
+
+                    if img_bytes:
+                        extracted.append(
+                            ExtractedEmbeddedImage(
+                                index=idx,
+                                filename=clean_filename,
+                                raw_bytes=img_bytes,
+                                alt=filename or f"Image {idx}",
+                                mime_type=c_type,
+                            )
+                        )
+                        # Replace cid: and Content-Location references in HTML
+                        cid = str(part.get("Content-ID", "")).strip("<>")
+                        loc = str(part.get("Content-Location", "")).strip()
+                        if cid:
+                            html_content = html_content.replace(f"cid:{cid}", clean_filename)
+                        if loc:
+                            html_content = html_content.replace(loc, clean_filename)
+                        idx += 1
+
+            return html_content, extracted
+        except Exception as exc:
+            logger.warning("Failed extracting MHTML images: %s", exc)
+
+    # Standard HTML / XHTML parsing with BeautifulSoup
+    from directory2md.parsers.html_parser import HTMLParser
+
+    html_text = HTMLParser._decode_html_bytes(raw_bytes)
+    soup = BeautifulSoup(html_text, "html.parser")
+
+    idx = 1
+    for img in soup.find_all("img"):
+        src = img.get("src", "")
+        if not src or not src.strip().lower().startswith("data:image/"):
+            continue
+
+        src_clean = src.strip()
+        header_match = re.match(r"^data:(image/[a-zA-Z0-9\+\-\.]+)(?:;charset=[^;,]+)?(;base64)?,(.*)$", src_clean, re.DOTALL | re.IGNORECASE)
+        if not header_match:
+            continue
+
+        mime_type = header_match.group(1).lower()
+        is_base64 = bool(header_match.group(2))
+        data_part = header_match.group(3)
+
+        ext = MIME_TO_EXT.get(mime_type, ".png")
+        filename = f"image_{idx:03d}{ext}"
+
+        raw_img_data = b""
+        try:
+            if is_base64:
+                raw_img_data = base64.b64decode(re.sub(r"\s+", "", data_part))
+            else:
+                raw_img_data = urllib.parse.unquote_to_bytes(data_part)
+        except Exception as exc:
+            logger.debug("Failed decoding embedded image %d: %s", idx, exc)
+            continue
+
+        if raw_img_data:
+            alt_text = img.get("alt", "") or f"Image {idx}"
+            extracted.append(
+                ExtractedEmbeddedImage(
+                    index=idx,
+                    filename=filename,
+                    raw_bytes=raw_img_data,
+                    alt=alt_text,
+                    mime_type=mime_type,
+                )
+            )
+            # Replace img src in the soup with relative container member filename
+            img["src"] = filename
+            idx += 1
+
+    return str(soup), extracted
 
 MONOLITH_URL_PATTERNS = [
     re.compile(r"Snapshot taken by (?:monolith|Monolith) from (https?://\S+)", re.IGNORECASE),
@@ -73,11 +255,12 @@ class HTMLParser(BaseParser):
         self.config = config
 
     def parse(self, filepath: Path) -> Tuple[DocumentMetadata, str]:
-        metadata = self.build_initial_metadata(filepath)
         raw_bytes = filepath.read_bytes()
+        html_text = self._decode_html_bytes(raw_bytes)
+        return self.parse_html_string(html_text, filepath)
 
-        # Multi-encoding decoding
-        html_text = self._decode_html(raw_bytes)
+    def parse_html_string(self, html_text: str, filepath: Path) -> Tuple[DocumentMetadata, str]:
+        metadata = self.build_initial_metadata(filepath)
         soup = BeautifulSoup(html_text, "html.parser")
 
         # 1. Extract Web & Monolith metadata
@@ -119,7 +302,8 @@ class HTMLParser(BaseParser):
 
         return metadata, markdown_body
 
-    def _decode_html(self, raw_bytes: bytes) -> str:
+    @staticmethod
+    def _decode_html_bytes(raw_bytes: bytes) -> str:
         """Decode raw HTML bytes trying charset declarations then common fallbacks."""
         # Quick check for charset in first 1024 bytes
         prefix = raw_bytes[:1024].decode("ascii", errors="ignore").lower()
@@ -138,6 +322,9 @@ class HTMLParser(BaseParser):
                 continue
 
         return raw_bytes.decode("utf-8", errors="replace")
+
+    def _decode_html(self, raw_bytes: bytes) -> str:
+        return self._decode_html_bytes(raw_bytes)
 
     def _extract_title(self, soup: BeautifulSoup, filepath: Path) -> str:
         """Extract title from <title>, OpenGraph tags, or first <h1>."""

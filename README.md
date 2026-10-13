@@ -8,11 +8,11 @@ A modern, high-performance command-line tool and Python library managed with **u
 
 - **Mirrored Directory Hierarchy**: Replicates the source directory tree into the target location, appending the `.directory2md.md` suffix to regular files (e.g., `document.pdf` $\rightarrow$ `document.pdf.directory2md.md`).
 - **Smart Container Processing**:
-  - Compressed archives (`.zip`, `.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tbz2`) and emails with attachments (`.eml`, `.msg` containing attachments) are created as **directories** ending in `.directory2md` (e.g., `archive.zip.directory2md/`, `message.eml.directory2md/`).
+  - Compressed archives (`.zip`, `.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tbz2`), emails with attachments (`.eml`, `.msg`), and web documents with embedded images (`.html`, `.htm`, `.xhtml`, `.mhtml` from tools like Monolith or SingleFile) are created as **directories** ending in `.directory2md` (e.g., `archive.zip.directory2md/`, `message.eml.directory2md/`, `page.html.directory2md/`).
   - Inside each container directory:
-    - A primary summary markdown file is written (e.g., `archive.zip.directory2md/archive.zip.directory2md.md` containing the table of contents and metadata, or `message.eml.directory2md/message.eml.directory2md.md` containing message headers and body).
-    - All extracted members or attachments are converted recursively into `.directory2md.md` files (and nested containers become subdirectories ending in `.directory2md`).
-  - Emails without attachments are converted directly as single files (`message.eml.directory2md.md`).
+    - A primary summary markdown file is written (e.g., `archive.zip.directory2md/archive.zip.directory2md.md` containing the table of contents and metadata, `message.eml.directory2md/message.eml.directory2md.md` containing message headers and body, or `page.html.directory2md/page.html.directory2md.md` with sanitized markdown and relative asset links).
+    - All extracted members, attachments, or embedded images are converted recursively into `.directory2md.md` files (and nested containers become subdirectories ending in `.directory2md`). Extracted images are processed with OCR and AI visual descriptions in the language configured in `directory2md.yaml` (`ai.language`), with zero raw Base64 binaries in the Markdown.
+  - Emails without attachments and HTML pages without embedded images are converted directly as single files (`message.eml.directory2md.md`, `page.html.directory2md.md`).
 - **Intelligent Incremental Updates**:
   - By default, files are only converted if:
     1. The destination file does not exist.

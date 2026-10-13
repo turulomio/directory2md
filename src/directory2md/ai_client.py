@@ -18,6 +18,40 @@ from directory2md.config import AIConfig
 logger = logging.getLogger("directory2md.ai")
 
 
+LANGUAGE_NAMES: dict[str, str] = {
+    "es": "Spanish (español)",
+    "en": "English",
+    "fr": "French (français)",
+    "de": "German (Deutsch)",
+    "it": "Italian (italiano)",
+    "pt": "Portuguese (português)",
+    "ca": "Catalan (català)",
+    "gl": "Galician (galego)",
+    "eu": "Basque (euskara)",
+    "nl": "Dutch (Nederlands)",
+    "ru": "Russian (русский)",
+    "zh": "Chinese (中文)",
+    "ja": "Japanese (日本語)",
+    "ko": "Korean (한국어)",
+    "ar": "Arabic (العربية)",
+}
+
+LOCALIZED_IMAGE_DESCRIPTION_PROMPTS: dict[str, str] = {
+    "es": "Describe de forma exhaustiva y detallada el contenido y contexto de esta imagen en español.",
+    "fr": "Décrivez de façon exhaustive et détaillée le contenu et le contexte de cette image en français.",
+    "de": "Beschreiben Sie den Inhalt und Kontext dieses Bildes ausführlich und detailliert auf Deutsch.",
+    "it": "Fornisci una descrizione completa e dettagliata dei contenuti e del contesto di questa immagine in italiano.",
+    "pt": "Forneça uma descrição detalhada e completa do conteúdo e do contexto desta imagem em português.",
+    "ca": "Descriu de manera exhaustiva i detallada el contingut i el context d'aquesta imatge en català.",
+}
+
+
+def get_language_name(code_or_name: str) -> str:
+    """Resolve ISO code or language string to descriptive language name."""
+    clean = code_or_name.strip().lower()
+    return LANGUAGE_NAMES.get(clean, code_or_name.strip())
+
+
 class AITimeoutError(TimeoutError):
     """Raised when an AI operation (Ollama or Whisper) exceeds its configured timeout."""
 
@@ -45,7 +79,19 @@ def query_ollama_vision(
 
     full_prompt = prompt
     if ai_config.language and "verbatim" not in prompt.lower():
-        full_prompt = f"{prompt}\nPlease respond in language: {ai_config.language}."
+        lang_code = ai_config.language.strip().lower()
+        lang_name = get_language_name(ai_config.language)
+
+        if "comprehensive and detailed description of the contents and context of this image" in prompt.lower():
+            localized = LOCALIZED_IMAGE_DESCRIPTION_PROMPTS.get(lang_code)
+            if localized:
+                full_prompt = localized
+
+        full_prompt = (
+            f"{full_prompt}\n"
+            f"Please respond in language: {ai_config.language}.\n"
+            f"IMPORTANT: Respond entirely in {lang_name}. The entire description must be written in {lang_name}."
+        )
 
     payload = {
         "model": ai_config.vision_model,
@@ -103,7 +149,12 @@ def query_ollama_multiple_images(
 
     full_prompt = prompt
     if ai_config.language:
-        full_prompt = f"{prompt}\nPlease respond in language: {ai_config.language}."
+        lang_name = get_language_name(ai_config.language)
+        full_prompt = (
+            f"{prompt}\n"
+            f"Please respond in language: {ai_config.language}.\n"
+            f"IMPORTANT: Respond entirely in {lang_name}. The entire summary must be written in {lang_name}."
+        )
 
     payload = {
         "model": ai_config.vision_model,

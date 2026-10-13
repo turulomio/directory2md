@@ -174,13 +174,49 @@ def test_html_parser_monolith_archive(tmp_path: Path):
     assert "Javascript Link" in text
     assert validate_markdown(text)
 
-    # Test full converter integration: converts to .html.directory2md.md
+    # Test full converter integration: converts HTML with embedded images to container directory
     src_dir = tmp_path / "in"
     src_dir.mkdir()
     (src_dir / "monolith_dump.html").write_text(html_file.read_text(encoding="utf-8"), encoding="utf-8")
     dst_dir = tmp_path / "out"
     convert_directory(src_dir, dst_dir)
-    converted_file = dst_dir / "monolith_dump.html.directory2md.md"
-    assert converted_file.exists()
+
+    # HTML with embedded images acts like a zip container!
+    container_dir = dst_dir / "monolith_dump.html.directory2md"
+    assert container_dir.is_dir()
+    primary_file = container_dir / "monolith_dump.html.directory2md.md"
+    assert primary_file.exists()
+    primary_text = primary_file.read_text(encoding="utf-8")
+    assert "data:image" not in primary_text
+    assert "base64" not in primary_text
+    assert "image_001.png" in primary_text
+    assert "image_002.jpg" in primary_text
+
+    # Extracted members
+    member1 = container_dir / "image_001.png.directory2md.md"
+    member2 = container_dir / "image_002.jpg.directory2md.md"
+    assert member1.exists()
+    assert member2.exists()
+    assert "archive_member: image_001.png" in member1.read_text(encoding="utf-8")
+
+
+def test_html_without_embedded_images(tmp_path: Path):
+    from directory2md.converter import convert_directory
+
+    src_dir = tmp_path / "in_plain"
+    src_dir.mkdir()
+    (src_dir / "plain.html").write_text(
+        "<html><body><h1>Plain Webpage</h1><p>No images here.</p></body></html>",
+        encoding="utf-8",
+    )
+    dst_dir = tmp_path / "out_plain"
+    convert_directory(src_dir, dst_dir)
+
+    # HTML without embedded images must NOT create a container directory
+    container_dir = dst_dir / "plain.html.directory2md"
+    assert not container_dir.exists()
+    single_file = dst_dir / "plain.html.directory2md.md"
+    assert single_file.exists()
+    assert "# Plain Webpage" in single_file.read_text(encoding="utf-8")
 
 

@@ -30,9 +30,11 @@ from directory2md.parsers import (
     is_archive_file,
     is_container_file,
     is_email_file,
+    is_html_file,
     email_has_attachments,
 )
 from directory2md.parsers.base import calculate_sha256
+from directory2md.parsers.html_parser import HTMLParser, extract_html_embedded_images
 
 logger = logging.getLogger("directory2md")
 
@@ -282,6 +284,8 @@ class DirectoryConverter:
                 self._convert_archive(src_file, rel_file, dst_container)
             elif is_email_file(src_file):
                 self._convert_email_container(src_file, rel_file, dst_container)
+            elif is_html_file(src_file):
+                self._convert_html_container(src_file, rel_file, dst_container)
 
             stats.converted += 1
         else:
@@ -425,6 +429,60 @@ class DirectoryConverter:
             self._convert_msg_container(email_path, rel_email, dst_container)
         else:
             self._convert_eml_container(email_path, rel_email, dst_container)
+
+    def _convert_html_container(
+        self,
+        html_path: Path,
+        rel_html: Path,
+        dst_container: Path,
+    ) -> None:
+        """Convert an HTML document with embedded images into a container directory.
+
+        Creates <name>.directory2md/ with:
+        - Primary markdown: <name>.html.directory2md.md with relative image links.
+        - Extracted images: image_001.png.directory2md.md, etc., parsed with ImageParser.
+        """
+        start_time = time.perf_counter()
+        raw_bytes = html_path.read_bytes()
+
+        modified_html, extracted_images = extract_html_embedded_images(
+            raw_bytes, html_path.suffix.lower()
+        )
+
+        # 1. Parse modified HTML for primary summary markdown
+        parser = HTMLParser(config=self.config)
+        metadata, content = parser.parse_html_string(modified_html, html_path)
+        metadata.filepath = str(html_path.resolve())
+        metadata.relative_path = str(rel_html)
+        metadata.conversion_time = round(time.perf_counter() - start_time, 4)
+
+        primary_md = dst_container / f"{html_path.name}{MD_SUFFIX}"
+        primary_content = serialize_document(
+            metadata,
+            content,
+            extra_frontmatter={"original_path": str(html_path.resolve()), "is_archive_root": True},
+        )
+        primary_md.write_text(primary_content, encoding="utf-8")
+
+        # 2. Extract and process each embedded image into dst_container
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            for img in extracted_images:
+                temp_img_file = tmp_path / img.filename
+                temp_img_file.write_bytes(img.raw_bytes)
+
+                member_dst_file = dst_container / f"{img.filename}{MD_SUFFIX}"
+                member_dst_file.parent.mkdir(parents=True, exist_ok=True)
+
+                self._convert_single_file(
+                    temp_img_file,
+                    Path(img.filename),
+                    member_dst_file,
+                    extra_frontmatter={
+                        "original_path": str(html_path.resolve()),
+                        "archive_member": img.filename,
+                    },
+                )
 
     def _convert_eml_container(
         self,

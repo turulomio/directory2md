@@ -319,3 +319,70 @@ def test_ai_timeout_handling(tmp_path: Path):
             doc_md = serialize_document(video_meta, video_text)
             assert "ia_timeout: true" in doc_md
 
+
+def test_image_ai_description_in_config_language(tmp_path: Path):
+    """Test that image descriptions use the language from the config (e.g. Spanish)."""
+    cfg = Config(ai=AIConfig(enabled=True, vision_model="llama3.2-vision", language="es"))
+
+    captured_prompt = None
+
+    def fake_query(img_bytes, prompt, ai_config):
+        nonlocal captured_prompt
+        captured_prompt = prompt
+        return "Una fotografía en color que muestra un paisaje montañoso con un lago claro."
+
+    with patch("directory2md.parsers.image_parser.query_ollama_vision", side_effect=fake_query):
+        img_file = tmp_path / "foto.jpg"
+        img_file.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb")
+
+        parser = ImageParser(config=cfg)
+        meta, text = parser.parse(img_file)
+
+        assert meta.ia is True
+        assert "## AI Image Description" in text
+        assert "paisaje montañoso" in text
+
+
+def test_html_embedded_images_ai_container_conversion(tmp_path: Path):
+    """Test that HTML with embedded images converts to container and describes images with AI."""
+    src_dir = tmp_path / "html_in"
+    src_dir.mkdir()
+    dst_dir = tmp_path / "html_out"
+    dst_dir.mkdir()
+
+    cfg = Config(ai=AIConfig(enabled=True, vision_model="llama3.2-vision", language="es"))
+
+    html_file = src_dir / "article.html"
+    html_file.write_text(
+        """<html><body>
+        <h1>Artículo con Gráfico</h1>
+        <p>A continuación se muestra el gráfico estadístico:</p>
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" alt="Gráfico 1">
+        </body></html>""",
+        encoding="utf-8",
+    )
+
+    with patch(
+        "directory2md.parsers.image_parser.query_ollama_vision",
+        return_value="Gráfico de barras mostrando el crecimiento anual en español.",
+    ):
+        convert_directory(src_dir, dst_dir, config=cfg)
+
+    # 1. Container directory created
+    container = dst_dir / "article.html.directory2md"
+    assert container.is_dir()
+
+    # 2. Primary markdown
+    primary = container / "article.html.directory2md.md"
+    assert primary.exists()
+    primary_text = primary.read_text(encoding="utf-8")
+    assert "data:image" not in primary_text
+    assert "image_001.png" in primary_text
+
+    # 3. Member markdown with AI description
+    member = container / "image_001.png.directory2md.md"
+    assert member.exists()
+    member_text = member.read_text(encoding="utf-8")
+    assert "ia: true" in member_text
+    assert "Gráfico de barras mostrando el crecimiento anual" in member_text
+

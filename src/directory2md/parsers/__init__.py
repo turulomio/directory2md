@@ -134,16 +134,27 @@ def email_has_attachments(filepath: Path) -> bool:
     return False
 
 
+def is_html_file(filepath: Path) -> bool:
+    """Check if the given file is an HTML or web document (.html, .htm, .xhtml, .mhtml)."""
+    suffix = filepath.suffix.lower()
+    return suffix in (".html", ".htm", ".xhtml", ".mhtml")
+
+
 def is_container_file(filepath: Path) -> bool:
     """Determine if a file behaves as a container (directory destination).
 
     Archives (.zip, .tar.gz, etc.) are always containers.
     Emails (.eml, .msg) are containers only if they contain attachments.
+    HTML/web pages (.html, .htm, .xhtml, .mhtml) are containers only if they contain embedded images.
     """
     if is_archive_file(filepath):
         return True
     if is_email_file(filepath):
         return email_has_attachments(filepath)
+    if is_html_file(filepath):
+        from directory2md.parsers.html_parser import html_has_embedded_images
+
+        return html_has_embedded_images(filepath)
     return False
 
 
@@ -164,7 +175,7 @@ def get_parser_for_file(filepath: Path, config: Optional[Any] = None) -> BasePar
 
     suffix = filepath.suffix.lower()
     parser_cls = PARSER_MAP.get(suffix, TextParser)
-    if parser_cls in (ImageParser, AudioParser, VideoParser):
+    if parser_cls in (ImageParser, AudioParser, VideoParser, HTMLParser):
         return parser_cls(config=config)
     return parser_cls()
 

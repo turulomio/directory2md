@@ -11,14 +11,16 @@ This document outlines the architecture, conventions, workflows, and lessons lea
 ### Key Transformation Rules
 1. **Regular Files**:
    - The `.directory2md.md` suffix is appended to the original filename: `report.pdf` $\rightarrow$ `report.pdf.directory2md.md`.
-2. **Container Files** (`.zip`, `.tar.gz`, `.tar`, `.tgz`, `.tbz2`, and `.eml`/`.msg` containing attachments):
-   - A destination **directory** matching the container name with `.directory2md` suffix is created (e.g. `archive.zip.directory2md/`, `message.eml.directory2md/`).
+2. **Container Files** (`.zip`, `.tar.gz`, `.tar`, `.tgz`, `.tbz2`, `.eml`/`.msg` containing attachments, and `.html`/`.htm`/`.xhtml`/`.mhtml` containing embedded images):
+   - A destination **directory** matching the container name with `.directory2md` suffix is created (e.g. `archive.zip.directory2md/`, `message.eml.directory2md/`, `page.html.directory2md/`).
    - Inside the container directory:
-     - The container's primary Markdown summary is created: `<container_name>.directory2md.md` (e.g. `archive.zip.directory2md.md` containing the table of contents and stats, or `message.eml.directory2md.md` with message headers and body).
-     - All contained members or attachments are extracted and converted recursively with `.directory2md.md` (nested containers create subdirectories ending in `.directory2md`).
-3. **Emails Without Attachments**:
-   - Plain `.eml` or `.msg` files with no attachments are treated as regular files and converted directly to `<name>.eml.directory2md.md` without creating a container directory.
-4. **YAML Frontmatter Headers**:
+     - The container's primary Markdown summary is created: `<container_name>.directory2md.md` (e.g. `archive.zip.directory2md.md` with TOC, `message.eml.directory2md.md` with headers/body, or `page.html.directory2md.md` with clean text and no base64 payloads).
+     - All contained members, attachments, or extracted embedded images are converted recursively with `.directory2md.md` (nested containers create subdirectories ending in `.directory2md`). Extracted images are processed with `ImageParser`, performing OCR and AI description in the language configured in `directory2md.yaml` (`ai.language`).
+3. **Files Without Attachments / Embedded Assets**:
+   - Plain `.eml` or `.msg` files without attachments and `.html` files without embedded images are treated as regular files and converted directly to `<name>.<ext>.directory2md.md` without creating a container directory.
+4. **AI Generation in Configured Language**:
+   - All AI descriptions (image descriptions, video keyframe summaries, audio transcripts) strictly use the language configured in `directory2md.yaml` (`ai.language`, e.g. "es", "en", "fr"), mapping language codes and employing strong prompt instructions.
+5. **YAML Frontmatter Headers**:
    - Every generated `.directory2md.md` file includes frontmatter containing:
      - `ia`: Boolean (`true`/`false`) flag indicating whether the output was generated with AI.
      - `ia_timeout`: Boolean (`true`), included if AI processing timed out.

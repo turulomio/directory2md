@@ -22,6 +22,10 @@ CONTAINER_EXT_PARTS = (
     ".tar",
     ".eml",
     ".msg",
+    ".html",
+    ".htm",
+    ".xhtml",
+    ".mhtml",
 )
 
 
