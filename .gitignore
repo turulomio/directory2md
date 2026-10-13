@@ -1,0 +1,15 @@
+# Python & virtual environment
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Distribution & builds
+dist/
+build/
+*.egg-info/
+
+# Tests & cache
+.pytest_cache/
+.coverage
+htmlcov/

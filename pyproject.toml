@@ -1,0 +1,28 @@
+[project]
+name = "directory2md"
+version = "0.1.0"
+description = "Recursively converts a directory to another with matching structure but markdown files"
+authors = [
+    { name = "turulomio", email = "turulomio@yahoo.es" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "extract-msg>=0.56.1",
+    "markdown-it-py>=4.2.0",
+    "olefile>=0.47",
+    "pypdf>=6.20.1",
+    "python-docx>=1.2.0",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+directory2md = "directory2md.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
