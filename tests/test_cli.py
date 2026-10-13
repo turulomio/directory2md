@@ -88,3 +88,26 @@ def test_cli_destination_inside_source(tmp_path: Path, capsys):
     assert "cannot be inside or the same as source directory" in captured.err
 
 
+def test_cli_force_targeted(tmp_path: Path, capsys):
+    src = tmp_path / "source"
+    dst = tmp_path / "dest"
+    src.mkdir()
+    (src / "other.txt").write_text("other")
+    sub = src / "subfolder"
+    sub.mkdir()
+    (sub / "doc.txt").write_text("doc")
+
+    # First run creates config
+    main([str(src), str(dst)])
+    capsys.readouterr()
+
+    # Second run with --force subfolder
+    code = main([str(src), str(dst), "--force", "subfolder"])
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "Mode:        FORCE (target: 'subfolder')" in captured.out
+    assert (dst / "subfolder" / "doc.txt.md").exists()
+    assert not (dst / "other.txt.md").exists()
+
+
+

@@ -69,28 +69,27 @@ uv run directory2md <source_directory> <destination_directory>
 ### Options
 
 ```text
-usage: directory2md [-h] [-d DAYS] [-f] [-v] [-q] [--no-progress] [-c CONFIG] source destination
+usage: directory2md [-h] [-d DAYS] [-f [TARGET]] [-v] [-q] [--no-progress] source destination
 
 Recursively convert a directory to Markdown with matching structure.
 
 positional arguments:
-  source           Source directory containing documents to convert
-  destination      Destination directory where markdown structure will be generated
+  source                Source directory containing documents to convert
+  destination           Destination directory where markdown structure will be generated
 
 options:
-  -h, --help       Show this help message and exit
-  -d, --days DAYS  Age threshold in days to re-convert existing markdown files (default: 180)
-  -f, --force      Force re-conversion of all files regardless of age
-  -v, --verbose    Show detailed progress for each file
-  -q, --quiet      Suppress informational output and show only errors
-  --no-progress    Disable interactive progress bar
-  -c, --config     Path to YAML configuration file (default: <destination>/directory2md.yaml)
+  -h, --help            Show this help message and exit
+  -d, --days DAYS       Age threshold in days to re-convert existing markdown files (default: 180)
+  -f, --force [TARGET]  Force re-conversion of all files, or a specific file or directory (recursively)
+  -v, --verbose         Show detailed progress for each file
+  -q, --quiet           Suppress informational output and show only errors
+  --no-progress         Disable interactive progress bar
 ```
 
 ### Examples
 
 ```bash
-# Standard conversion (180-day incremental threshold)
+# Standard conversion (uses/creates directory2md.yaml in destination)
 uv run directory2md ~/Documents ~/Documents_md
 
 # Verbose mode with a custom 30-day age threshold
@@ -98,6 +97,12 @@ uv run directory2md ~/Documents ~/Documents_md --days 30 -v
 
 # Force re-conversion of all files
 uv run directory2md ~/Documents ~/Documents_md --force
+
+# Force re-conversion of a specific subfolder (recursively)
+uv run directory2md ~/Documents ~/Documents_md --force reports/2026
+
+# Force re-conversion of a specific single file
+uv run directory2md ~/Documents ~/Documents_md --force invoice.pdf
 ```
 
 ---

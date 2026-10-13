@@ -32,7 +32,7 @@ This document outlines the architecture, conventions, workflows, and lessons lea
      a) Destination does not exist.
      b) Destination file age exceeds `max_age_days` (default: 180 days).
      c) Source file modification timestamp (`src.mtime`) is newer than destination timestamp (`dst.mtime`).
-     d) The `--force` flag is specified.
+     d) The `--force` flag is specified (optionally targeting a specific file or directory recursively).
 
 ---
 

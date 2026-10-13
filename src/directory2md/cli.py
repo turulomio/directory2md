@@ -43,8 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-f",
         "--force",
-        action="store_true",
-        help="Force re-conversion of all files regardless of age",
+        nargs="?",
+        const=True,
+        default=False,
+        metavar="TARGET",
+        help="Force re-conversion of all files, or a specific file or directory (recursively)",
     )
     parser.add_argument(
         "-v",
@@ -62,13 +65,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-progress",
         action="store_true",
         help="Disable interactive progress bar",
-    )
-    parser.add_argument(
-        "-c",
-        "--config",
-        type=Path,
-        default=None,
-        help="Path to YAML configuration file (default: <destination>/directory2md.yaml)",
     )
     return parser
 
@@ -103,12 +99,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    # Configuration file handling: in destination directory if not specified
-    config_file: Path = args.config if args.config else (dst_dir / "directory2md.yaml")
+    # Configuration file in destination directory: create on first run and prompt edit
+    config_file: Path = dst_dir / "directory2md.yaml"
     if not config_file.exists():
         create_default_config_file(config_file)
         if not args.quiet:
-            print(f"Se ha creado el archivo de configuración en:")
+            print("Se ha creado el archivo de configuración en:")
             print(f"  {config_file.resolve()}\n")
             print("Por favor, revisa y edita este archivo para configurar tus modelos de IA u otras opciones,")
             print("y vuelve a ejecutar directory2md.")
@@ -116,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
 
     config = load_config(config_file)
     days = args.days if args.days != 180 or config.days == 180 else config.days
-    force = args.force or config.force
+    force = args.force if args.force else config.force
     verbose = args.verbose or config.verbose
 
     if not args.quiet:
@@ -125,8 +121,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Destination: {dst_dir.resolve()}")
         print(f"  Config:      {config_file.resolve()}")
         print(f"  Threshold:   {days} days")
-        if force:
+        if force is True:
             print("  Mode:        FORCE (refreshing all files)")
+        elif force:
+            print(f"  Mode:        FORCE (target: '{force}')")
         if config.ai.enabled:
             print(f"  AI (Ollama): ENABLED (Vision: '{config.ai.vision_model or 'none'}', Audio: '{config.ai.audio_model or 'none'}')")
 

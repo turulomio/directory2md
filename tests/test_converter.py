@@ -172,3 +172,41 @@ def test_destination_inside_or_equal_to_source(tmp_path: Path):
         convert_directory(src, src)
 
 
+def test_force_with_targeted_path_or_file(tmp_path: Path):
+    src = tmp_path / "source"
+    dst = tmp_path / "dest"
+    src.mkdir()
+
+    # Create root files and a subfolder with files
+    (src / "root1.txt").write_text("root 1")
+    (src / "root2.txt").write_text("root 2")
+    sub = src / "subfolder"
+    sub.mkdir()
+    (sub / "sub1.txt").write_text("sub 1")
+    (sub / "sub2.txt").write_text("sub 2")
+    nested = sub / "nested"
+    nested.mkdir()
+    (nested / "nested1.txt").write_text("nested 1")
+
+    # 1. Targeted single file
+    stats_file = convert_directory(src, dst, force="root1.txt")
+    assert stats_file.total_scanned == 1
+    assert stats_file.converted == 1
+    assert (dst / "root1.txt.md").exists()
+    assert not (dst / "root2.txt.md").exists()
+
+    # 2. Targeted directory (recursive)
+    stats_dir = convert_directory(src, dst, force="subfolder")
+    assert stats_dir.total_scanned == 3  # sub1, sub2, nested1
+    assert stats_dir.converted == 3
+    assert (dst / "subfolder" / "sub1.txt.md").exists()
+    assert (dst / "subfolder" / "sub2.txt.md").exists()
+    assert (dst / "subfolder" / "nested" / "nested1.txt.md").exists()
+    assert not (dst / "root2.txt.md").exists()
+
+    # 3. Nonexistent target raises ValueError
+    with pytest.raises(ValueError, match="does not exist in source directory"):
+        convert_directory(src, dst, force="does_not_exist")
+
+
+

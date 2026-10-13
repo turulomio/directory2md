@@ -55,7 +55,7 @@ class DirectoryConverter:
     def __init__(
         self,
         max_age_days: int = 180,
-        force: bool = False,
+        force: bool | str | Path = False,
         verbose: bool = False,
         log_callback: Optional[Callable[[str], None]] = None,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
@@ -65,7 +65,7 @@ class DirectoryConverter:
 
         Args:
             max_age_days: Number of days threshold before an existing .md file is refreshed.
-            force: If True, always convert regardless of file age or existence.
+            force: If True, always convert regardless of age. If a path or string, only convert that file/dir recursively.
             verbose: Enable verbose logging.
             log_callback: Optional callback receiving progress log messages.
             progress_callback: Optional callback receiving (current, total, filename) for progress reporting.
@@ -169,6 +169,21 @@ class DirectoryConverter:
         dst_root.mkdir(parents=True, exist_ok=True)
         stats = ConversionStats()
 
+        # Check if force specifies a targeted file or directory
+        force_target_path: Optional[Path] = None
+        if isinstance(self.force, (str, Path)):
+            force_str = str(self.force).strip()
+            if force_str in ("*", "true", "True", "1"):
+                self.force = True
+            elif force_str in ("", "false", "False", "0"):
+                self.force = False
+            else:
+                force_target_path = self._resolve_force_target(src_root, force_str)
+                if not force_target_path.exists():
+                    raise ValueError(
+                        f"Target path '{self.force}' specified in --force does not exist in source directory '{src_root}'."
+                    )
+
         # Collect all files to process
         files_to_process: List[Tuple[Path, Path]] = []
         for dirpath, dirnames, filenames in os.walk(src_root):
@@ -179,6 +194,12 @@ class DirectoryConverter:
             for filename in filenames:
                 src_file = Path(dirpath) / filename
                 rel_file = rel_dir / filename if str(rel_dir) != "." else Path(filename)
+
+                # When a force target is specified, filter only that file or directory members recursively
+                if force_target_path is not None:
+                    if src_file != force_target_path and not src_file.is_relative_to(force_target_path):
+                        continue
+
                 files_to_process.append((src_file, rel_file))
 
         total_files = len(files_to_process)
@@ -199,6 +220,27 @@ class DirectoryConverter:
                 self.progress_callback(idx, total_files, str(rel_file))
 
         return stats
+
+    def _resolve_force_target(self, src_root: Path, target_str: str) -> Path:
+        """Resolve a targeted path string specified in force option."""
+        target = Path(target_str)
+        if target.is_absolute():
+            resolved = target.resolve()
+            if resolved == src_root or resolved.is_relative_to(src_root):
+                return resolved
+            raise ValueError(
+                f"Target path '{target_str}' specified in --force is outside source directory '{src_root}'."
+            )
+
+        candidate = (src_root / target).resolve()
+        if candidate.exists() and (candidate == src_root or candidate.is_relative_to(src_root)):
+            return candidate
+
+        candidate_cwd = target.resolve()
+        if candidate_cwd.exists() and (candidate_cwd == src_root or candidate_cwd.is_relative_to(src_root)):
+            return candidate_cwd
+
+        return (src_root / target).resolve()
 
     def _process_file(
         self,
@@ -578,7 +620,7 @@ def convert_directory(
     src_dir: Path | str,
     dst_dir: Path | str,
     max_age_days: int = 180,
-    force: bool = False,
+    force: bool | str | Path = False,
     verbose: bool = False,
     log_callback: Optional[Callable[[str], None]] = None,
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
