@@ -217,14 +217,50 @@ class DirectoryConverter:
             try:
                 self._process_file(src_file, rel_file, dst_root, stats)
             except Exception as exc:
-                err_msg = f"Failed processing '{src_file}': {exc}"
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                err_msg = f"[{now_str}] [ERROR] Failed processing '{src_file}': {exc}"
                 logger.error(err_msg, exc_info=True)
-                stats.errors.append((str(src_file), str(exc)))
+                if self.log_callback:
+                    self.log_callback(err_msg)
+                stats.errors.append((str(src_file), f"[{now_str}] {exc}"))
+                self._cleanup_failed_destination(rel_file, dst_root)
 
             if self.progress_callback:
                 self.progress_callback(idx, total_files, str(rel_file))
 
         return stats
+
+    def _cleanup_failed_destination(self, rel_file: Path, dst_root: Path) -> None:
+        """Ensure no markdown files or container directories remain on failure.
+
+        Deletes any destination container directory and any generated markdown files.
+        """
+        try:
+            # 1. Container directory: <rel_file>.directory2md
+            dst_container = dst_root / f"{rel_file}{CONTAINER_SUFFIX}"
+            if dst_container.exists():
+                if dst_container.is_dir():
+                    shutil.rmtree(dst_container, ignore_errors=True)
+                else:
+                    dst_container.unlink(missing_ok=True)
+
+            # 2. Direct markdown file: <rel_file>.directory2md.md
+            dst_file = dst_root / f"{rel_file}{MD_SUFFIX}"
+            if dst_file.exists():
+                if dst_file.is_dir():
+                    shutil.rmtree(dst_file, ignore_errors=True)
+                else:
+                    dst_file.unlink(missing_ok=True)
+
+            # 3. Legacy .md file if present
+            legacy_md = dst_root / f"{rel_file}.md"
+            if legacy_md.exists():
+                if legacy_md.is_dir():
+                    shutil.rmtree(legacy_md, ignore_errors=True)
+                else:
+                    legacy_md.unlink(missing_ok=True)
+        except Exception as cleanup_exc:
+            logger.warning("Failed during cleanup of failed destination '%s': %s", rel_file, cleanup_exc)
 
     def _resolve_force_target(self, src_root: Path, target_str: str) -> Path:
         """Resolve a targeted path string specified in force option."""
@@ -392,7 +428,7 @@ class DirectoryConverter:
                             if inner.is_file():
                                 extracted_files.append((m.name, inner))
                         except Exception as e:
-                            logger.warning(f"Failed extracting {m.name} from {archive_path}: {e}")
+                            raise RuntimeError(f"Failed extracting {m.name} from {archive_path}: {e}") from e
 
             # Process each member into dst_container
             for member_rel_str, member_extracted_path in extracted_files:

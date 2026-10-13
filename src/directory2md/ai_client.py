@@ -52,7 +52,11 @@ def get_language_name(code_or_name: str) -> str:
     return LANGUAGE_NAMES.get(clean, code_or_name.strip())
 
 
-class AITimeoutError(TimeoutError):
+class AIError(Exception):
+    """Base exception for AI-related errors."""
+
+
+class AITimeoutError(AIError, TimeoutError):
     """Raised when an AI operation (Ollama or Whisper) exceeds its configured timeout."""
 
 
@@ -112,18 +116,19 @@ def query_ollama_vision(
             if resp.status == 200:
                 body = json.loads(resp.read().decode("utf-8"))
                 return str(body.get("response", "")).strip()
+            raise AIError(f"Ollama vision query returned HTTP {resp.status}")
     except (TimeoutError, urllib.error.URLError) as exc:
         if isinstance(exc, TimeoutError) or "timed out" in str(exc).lower():
             logger.warning("Ollama vision query timed out after %ds for model '%s'", ai_config.timeout_seconds, ai_config.vision_model)
             raise AITimeoutError(f"Ollama vision query timed out after {ai_config.timeout_seconds}s") from exc
         logger.warning("Ollama vision query failed for model '%s': %s", ai_config.vision_model, exc)
+        raise AIError(f"Ollama vision query failed for model '{ai_config.vision_model}': {exc}") from exc
     except Exception as exc:
         if "timed out" in str(exc).lower():
             logger.warning("Ollama vision query timed out after %ds for model '%s'", ai_config.timeout_seconds, ai_config.vision_model)
             raise AITimeoutError(f"Ollama vision query timed out after {ai_config.timeout_seconds}s") from exc
         logger.warning("Ollama vision query failed for model '%s': %s", ai_config.vision_model, exc)
-
-    return None
+        raise AIError(f"Ollama vision query failed for model '{ai_config.vision_model}': {exc}") from exc
 
 
 def query_ollama_multiple_images(
@@ -175,18 +180,19 @@ def query_ollama_multiple_images(
             if resp.status == 200:
                 body = json.loads(resp.read().decode("utf-8"))
                 return str(body.get("response", "")).strip()
+            raise AIError(f"Ollama multi-image vision query returned HTTP {resp.status}")
     except (TimeoutError, urllib.error.URLError) as exc:
         if isinstance(exc, TimeoutError) or "timed out" in str(exc).lower():
             logger.warning("Ollama multi-image vision query timed out after %ds", ai_config.timeout_seconds)
             raise AITimeoutError(f"Ollama multi-image vision query timed out after {ai_config.timeout_seconds}s") from exc
         logger.warning("Ollama multi-image vision query failed: %s", exc)
+        raise AIError(f"Ollama multi-image vision query failed: {exc}") from exc
     except Exception as exc:
         if "timed out" in str(exc).lower():
             logger.warning("Ollama multi-image vision query timed out after %ds", ai_config.timeout_seconds)
             raise AITimeoutError(f"Ollama multi-image vision query timed out after {ai_config.timeout_seconds}s") from exc
         logger.warning("Ollama multi-image vision query failed: %s", exc)
-
-    return None
+        raise AIError(f"Ollama multi-image vision query failed: {exc}") from exc
 
 
 def extract_video_keyframes(video_path: Path, max_frames: int = 3) -> List[bytes]:
@@ -249,6 +255,8 @@ def transcribe_audio_whisper(audio_path: Path, ai_config: Optional[AIConfig] = N
             whisper_cmd = str(venv_whisper)
 
     if not whisper_cmd:
+        if ai_config and ai_config.enabled and ai_config.audio_model:
+            raise AIError("Whisper CLI is not installed or not found in PATH")
         return None
 
     timeout_val = ai_config.timeout_seconds if (ai_config and ai_config.timeout_seconds) else 120
@@ -271,6 +279,7 @@ def transcribe_audio_whisper(audio_path: Path, ai_config: Optional[AIConfig] = N
             txt_files = list(Path(tmpdir).glob("*.txt"))
             if txt_files:
                 return txt_files[0].read_text(encoding="utf-8").strip()
+            return ""
     except subprocess.TimeoutExpired as exc:
         logger.warning("Whisper transcription timed out for '%s' after %ss", audio_path, exc.timeout)
         raise AITimeoutError(f"Whisper audio transcription timed out after {exc.timeout}s") from exc
@@ -278,5 +287,4 @@ def transcribe_audio_whisper(audio_path: Path, ai_config: Optional[AIConfig] = N
         if "timed out" in str(exc).lower():
             raise AITimeoutError(f"Whisper audio transcription timed out: {exc}") from exc
         logger.warning("Whisper transcription failed for '%s': %s", audio_path, exc)
-
-    return None
+        raise AIError(f"Whisper audio transcription failed for '{audio_path}': {exc}") from exc

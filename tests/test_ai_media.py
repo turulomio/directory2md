@@ -278,46 +278,54 @@ def test_ai_language_prompt_and_whisper_args(tmp_path: Path):
 
 def test_ai_timeout_handling(tmp_path: Path):
     from directory2md.ai_client import AITimeoutError
-    from directory2md.markdown_utils import serialize_document
 
     cfg = Config(ai=AIConfig(enabled=True, vision_model="llava", audio_model="base", timeout_seconds=30))
 
-    # 1. Image timeout
+    # 1. Image timeout raises and leaves no markdown file
     img_file = tmp_path / "timeout.png"
     img_file.write_bytes(b"\x89PNG\r\n\x1a\n...")
     with patch("directory2md.parsers.image_parser.query_ollama_vision", side_effect=AITimeoutError("Ollama query timed out after 30s")):
         img_parser = ImageParser(config=cfg)
-        img_meta, img_text = img_parser.parse(img_file)
-        assert img_meta.ia is False
-        assert img_meta.ia_timeout is True
-        assert "AI Timeout" in img_text
-        doc_md = serialize_document(img_meta, img_text)
-        assert "ia_timeout: true" in doc_md
+        with pytest.raises(AITimeoutError):
+            img_parser.parse(img_file)
 
-    # 2. Audio timeout
+    # 2. Audio timeout raises
     audio_file = tmp_path / "timeout.mp3"
     audio_file.write_bytes(b"audio_bytes")
     with patch("directory2md.parsers.media_parser.transcribe_audio_whisper", side_effect=AITimeoutError("Whisper timed out after 30s")):
         audio_parser = AudioParser(config=cfg)
-        audio_meta, audio_text = audio_parser.parse(audio_file)
-        assert audio_meta.ia is False
-        assert audio_meta.ia_timeout is True
-        assert "AI Timeout" in audio_text
-        doc_md = serialize_document(audio_meta, audio_text)
-        assert "ia_timeout: true" in doc_md
+        with pytest.raises(AITimeoutError):
+            audio_parser.parse(audio_file)
 
-    # 3. Video timeout
+    # 3. Video timeout raises
     video_file = tmp_path / "timeout.mp4"
     video_file.write_bytes(b"video_bytes")
-    with patch("directory2md.parsers.media_parser.extract_video_keyframes", return_value=[b"frame1"]):
-        with patch("directory2md.parsers.media_parser.query_ollama_multiple_images", side_effect=AITimeoutError("Ollama timed out after 30s")):
-            video_parser = VideoParser(config=cfg)
-            video_meta, video_text = video_parser.parse(video_file)
-            assert video_meta.ia is False
-            assert video_meta.ia_timeout is True
-            assert "AI Timeout" in video_text
-            doc_md = serialize_document(video_meta, video_text)
-            assert "ia_timeout: true" in doc_md
+    with patch("shutil.which", return_value="/usr/bin/ffmpeg"):
+        with patch("directory2md.parsers.media_parser.extract_video_keyframes", return_value=[b"frame1"]):
+            with patch("directory2md.parsers.media_parser.query_ollama_multiple_images", side_effect=AITimeoutError("Ollama timed out after 30s")):
+                video_parser = VideoParser(config=cfg)
+                with pytest.raises(AITimeoutError):
+                    video_parser.parse(video_file)
+
+    # 4. Conversion of directory on AI timeout deletes markdown and logs error with timestamp
+    src_dir = tmp_path / "src_ai_timeout"
+    dst_dir = tmp_path / "dst_ai_timeout"
+    src_dir.mkdir()
+    (src_dir / "timeout.png").write_bytes(b"\x89PNG\r\n\x1a\n...")
+
+    logged_messages = []
+    with patch("directory2md.parsers.image_parser.query_ollama_vision", side_effect=AITimeoutError("Ollama timeout")):
+        stats = convert_directory(src_dir, dst_dir, config=cfg, log_callback=logged_messages.append)
+
+    assert stats.has_errors
+    assert len(stats.errors) == 1
+    err_path, err_str = stats.errors[0]
+    assert "timeout.png" in err_path
+    error_msgs = [msg for msg in logged_messages if "[ERROR]" in msg]
+    assert len(error_msgs) == 1
+    assert "timeout.png" in error_msgs[0]
+    # Verify no markdown file is left behind
+    assert not (dst_dir / "timeout.png.directory2md.md").exists()
 
 
 def test_image_ai_description_in_config_language(tmp_path: Path):

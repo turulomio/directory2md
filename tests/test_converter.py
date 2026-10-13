@@ -216,4 +216,74 @@ def test_force_with_targeted_path_or_file(tmp_path: Path):
         convert_directory(src, dst, force="../outside_dir")
 
 
+def test_error_handling_logs_timestamp_and_cleans_single_file(tmp_path: Path):
+    from unittest.mock import patch
+    import re
+
+    src = tmp_path / "src"
+    dst = tmp_path / "dst"
+    src.mkdir()
+    (src / "broken.txt").write_text("Hello text")
+
+    logged = []
+
+    with patch("directory2md.converter.serialize_document", side_effect=RuntimeError("Serialization crashed")):
+        stats = convert_directory(src, dst, log_callback=logged.append)
+
+    assert stats.has_errors
+    assert len(stats.errors) == 1
+    err_file, err_text = stats.errors[0]
+    assert "broken.txt" in err_file
+    # Check timestamp format: [YYYY-MM-DD HH:MM:SS]
+    assert re.search(r"\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]", err_text)
+
+    # Check log message contains timestamp and file
+    error_logs = [msg for msg in logged if "[ERROR]" in msg]
+    assert len(error_logs) == 1
+    assert "broken.txt" in error_logs[0]
+    assert re.search(r"\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]", error_logs[0])
+
+    # Destination markdown must NOT exist
+    assert not (dst / "broken.txt.directory2md.md").exists()
+
+
+def test_error_handling_cleans_entire_container_on_zip_member_error(tmp_path: Path):
+    from unittest.mock import patch
+    import zipfile
+
+    src = tmp_path / "src_zip"
+    dst = tmp_path / "dst_zip"
+    src.mkdir()
+
+    zip_file = src / "bundle.zip"
+    with zipfile.ZipFile(zip_file, "w") as zf:
+        zf.writestr("member1.txt", "Member 1 text")
+        zf.writestr("member2.txt", "Member 2 text")
+
+    logged = []
+
+    # Mock _convert_single_file to fail when processing member2
+    original_convert_single = DirectoryConverter._convert_single_file
+
+    def failing_convert_single(self, s_file, r_file, d_file, extra_frontmatter=None):
+        if "member2" in str(r_file):
+            raise RuntimeError("Corrupt member2 conversion failure")
+        return original_convert_single(self, s_file, r_file, d_file, extra_frontmatter)
+
+    with patch.object(DirectoryConverter, "_convert_single_file", failing_convert_single):
+        stats = convert_directory(src, dst, log_callback=logged.append)
+
+    assert stats.has_errors
+    assert len(stats.errors) == 1
+
+    # Container directory must NOT exist (completely wiped out)
+    container_dir = dst / "bundle.zip.directory2md"
+    assert not container_dir.exists()
+
+    # Zero markdown files anywhere in destination
+    all_md_files = list(dst.rglob("*.md"))
+    assert len(all_md_files) == 0
+
+
+
 

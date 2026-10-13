@@ -166,11 +166,12 @@ def main(argv: list[str] | None = None) -> int:
     pbar: tqdm | None = None
 
     def log_cb(msg: str) -> None:
-        if verbose:
+        is_error = "[ERROR]" in msg
+        if verbose or is_error:
             if pbar is not None:
                 tqdm.write(f"  • {msg}")
             else:
-                print(f"  • {msg}")
+                print(f"  • {msg}", file=sys.stderr if is_error else sys.stdout)
 
     def progress_cb(current: int, total: int, filename: str) -> None:
         nonlocal pbar

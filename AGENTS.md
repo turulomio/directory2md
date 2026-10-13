@@ -23,7 +23,6 @@ This document outlines the architecture, conventions, workflows, and lessons lea
 5. **YAML Frontmatter Headers**:
    - Every generated `.directory2md.md` file includes frontmatter containing:
      - `ia`: Boolean (`true`/`false`) flag indicating whether the output was generated with AI.
-     - `ia_timeout`: Boolean (`true`), included if AI processing timed out.
      - `original_path`: Absolute path to original file.
      - `filename`: Base filename.
      - `file_size_bytes`: Original file size in bytes.
@@ -31,13 +30,16 @@ This document outlines the architecture, conventions, workflows, and lessons lea
      - `conversion_time`: Duration of conversion in seconds (float).
      - `conversion_date`: ISO-8601 conversion timestamp.
      - For extracted container members: `archive_member` or `attachment_name`.
-5. **Incremental Update Policy** (Default 180 Days):
+6. **Error Logging and Strict Cleanup Policy**:
+   - Whenever an error occurs during conversion (including AI timeouts or any other AI failure), it is logged with timestamp and filepath: `[YYYY-MM-DD HH:MM:SS] [ERROR] Failed processing '<src_file>': <exc>`.
+   - On error, **never leave any markdown file or container directory**: any generated destination files (including all member markdowns inside container directories like `.zip.directory2md`, `.pdf.directory2md`, etc.) are completely purged.
+7. **Incremental Update Policy** (Default 180 Days):
    - A destination file is only re-converted if:
      a) Destination does not exist.
      b) Destination file age exceeds `max_age_days` (default: 180 days).
      c) Source file modification timestamp (`src.mtime`) is newer than destination timestamp (`dst.mtime`).
      d) The `--force` flag is specified (optionally targeting a specific file or directory recursively).
-6. **Automatic Config Migration**:
+8. **Automatic Config Migration**:
    - If an existing destination `directory2md.yaml` is missing keys (e.g. from an older version), it is automatically updated in-place upon execution. Existing settings, custom values, and comments are preserved.
 
 ---

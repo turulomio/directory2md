@@ -149,3 +149,40 @@ def test_eml_with_attachments_is_container_directory(tmp_path: Path):
     fm_att, body_att = parse_frontmatter(att_md.read_text(encoding="utf-8"))
     assert "Invoice content details" in body_att
     assert fm_att["attachment_name"] == "invoice.txt"
+
+
+def test_container_error_cleans_entire_directory(tmp_path: Path):
+    from unittest.mock import patch
+    from directory2md.converter import DirectoryConverter
+
+    src = tmp_path / "src"
+    dst = tmp_path / "dst"
+    src.mkdir()
+
+    msg = EmailMessage()
+    msg["From"] = "sender@example.com"
+    msg["To"] = "receiver@example.com"
+    msg["Subject"] = "Broken Email Attachment"
+    msg.set_content("Check attached.")
+    msg.add_attachment(b"broken content", maintype="text", subtype="plain", filename="broken.txt")
+
+    eml_path = src / "fail.eml"
+    eml_path.write_bytes(msg.as_bytes())
+
+    # Cause attachment conversion to crash
+    orig_convert = DirectoryConverter._convert_single_file
+
+    def failing_convert(self, s_file, r_file, d_file, extra_frontmatter=None):
+        if "broken.txt" in str(r_file):
+            raise ValueError("Failure converting attachment broken.txt")
+        return orig_convert(self, s_file, r_file, d_file, extra_frontmatter)
+
+    logged = []
+    with patch.object(DirectoryConverter, "_convert_single_file", failing_convert):
+        stats = convert_directory(src, dst, log_callback=logged.append)
+
+    assert stats.has_errors
+    container_dir = dst / "fail.eml.directory2md"
+    assert not container_dir.exists()
+    assert len(list(dst.rglob("*.md"))) == 0
+

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from directory2md.ai_client import (
-    AITimeoutError,
+    AIError,
     extract_video_keyframes,
     query_ollama_multiple_images,
     transcribe_audio_whisper,
@@ -69,14 +69,8 @@ class AudioParser(BaseParser):
         ]
 
         transcription = None
-        ia_timeout = False
-        timeout_msg = ""
-        if self.config and self.config.ai.enabled:
-            try:
-                transcription = transcribe_audio_whisper(filepath, ai_config=self.config.ai)
-            except AITimeoutError as exc:
-                ia_timeout = True
-                timeout_msg = str(exc)
+        if self.config and self.config.ai.enabled and self.config.ai.audio_model:
+            transcription = transcribe_audio_whisper(filepath, ai_config=self.config.ai)
 
         if transcription:
             metadata.ia = True
@@ -89,15 +83,6 @@ class AudioParser(BaseParser):
             words = transcription.split()
             metadata.word_count = len(words)
             metadata.text_snippet = " ".join(words[:60])
-        elif ia_timeout:
-            metadata.ia = False
-            metadata.ia_timeout = True
-            lines.extend([
-                f"> ⚠️ **AI Timeout**: Audio transcription timed out ({timeout_msg or 'Processing limit exceeded'}).",
-                "",
-            ])
-            metadata.word_count = 0
-            metadata.text_snippet = f"[Audio ({suffix.upper().lstrip('.')}) • {size_str} • Timeout]"
         else:
             metadata.ia = False
             lines.extend([
@@ -134,20 +119,17 @@ class VideoParser(BaseParser):
         ]
 
         summary = None
-        ia_timeout = False
-        timeout_msg = ""
         if self.config and self.config.ai.enabled and self.config.ai.vision_model:
+            import shutil
+            if not shutil.which("ffmpeg"):
+                raise AIError("ffmpeg is not installed or not found in PATH")
             frames = extract_video_keyframes(filepath, max_frames=self.config.ai.max_video_frames)
             if frames:
-                try:
-                    summary = query_ollama_multiple_images(
-                        frames,
-                        prompt=self.config.ai.prompt_video_summary,
-                        ai_config=self.config.ai,
-                    )
-                except AITimeoutError as exc:
-                    ia_timeout = True
-                    timeout_msg = str(exc)
+                summary = query_ollama_multiple_images(
+                    frames,
+                    prompt=self.config.ai.prompt_video_summary,
+                    ai_config=self.config.ai,
+                )
 
         if summary:
             metadata.ia = True
@@ -160,15 +142,6 @@ class VideoParser(BaseParser):
             words = summary.split()
             metadata.word_count = len(words)
             metadata.text_snippet = " ".join(words[:60])
-        elif ia_timeout:
-            metadata.ia = False
-            metadata.ia_timeout = True
-            lines.extend([
-                f"> ⚠️ **AI Timeout**: Video AI scene analysis timed out ({timeout_msg or 'Processing limit exceeded'}).",
-                "",
-            ])
-            metadata.word_count = 0
-            metadata.text_snippet = f"[Video ({suffix.upper().lstrip('.')}) • {size_str} • Timeout]"
         else:
             metadata.ia = False
             lines.extend([
