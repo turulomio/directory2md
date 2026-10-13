@@ -43,6 +43,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force re-conversion of all files, or a specific file or directory (recursively)",
     )
     parser.add_argument(
+        "-e",
+        "--exclude",
+        action="append",
+        default=[],
+        help="Exclude a file, directory, or pattern (can be specified multiple times)",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -142,6 +149,11 @@ def main(argv: list[str] | None = None) -> int:
     force = args.force if args.force else config.force
     verbose = args.verbose or config.verbose
 
+    # Combine exclude patterns from config and CLI arguments
+    exclude_patterns: list[str] = list(config.exclude)
+    if args.exclude:
+        exclude_patterns.extend(args.exclude)
+
     # Validate force setting if it came from config
     if err := _validate_force_target(force, src_dir, src_resolved):
         print(err, file=sys.stderr)
@@ -160,6 +172,8 @@ def main(argv: list[str] | None = None) -> int:
             print("  Mode:        FORCE (refreshing all files)")
         elif force:
             print(f"  Mode:        FORCE (target: '{force}')")
+        if exclude_patterns:
+            print(f"  Exclude:     {', '.join(exclude_patterns)}")
         if config.ai.enabled:
             print(f"  AI (Ollama): ENABLED (Vision: '{config.ai.vision_model or 'none'}', Audio: '{config.ai.audio_model or 'none'}')")
 
@@ -202,6 +216,7 @@ def main(argv: list[str] | None = None) -> int:
             log_callback=log_cb,
             progress_callback=progress_cb,
             config=config,
+            exclude=exclude_patterns,
         )
 
         if pbar is not None:
@@ -211,6 +226,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Total scanned:   {stats.total_scanned}")
         print(f"  Files converted: {stats.converted}")
         print(f"  Files skipped:   {stats.skipped}")
+        if stats.excluded:
+            print(f"  Excluded:        {stats.excluded}")
         if stats.has_errors:
             print(f"  Errors encountered: {len(stats.errors)}", file=sys.stderr)
             for path, err in stats.errors:

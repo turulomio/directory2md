@@ -43,6 +43,10 @@ This document outlines the architecture, conventions, workflows, and lessons lea
      d) The `--force` flag is specified (optionally targeting a specific file or directory recursively).
 8. **Automatic Config Migration**:
    - If an existing destination `directory2md.yaml` is missing keys (e.g. from an older version), it is automatically updated in-place upon execution. Existing settings, custom values, and comments are preserved.
+9. **File and Directory Exclusions**:
+   - Files and directories matching patterns in `directory2md.yaml` (`exclude`) or the `--exclude` / `-e` CLI option are omitted from conversion.
+   - For directories, exclusions are pruned during directory tree traversal (`os.walk`), skipping all recursion into excluded folders and avoiding creating empty destination directories.
+   - Supports exact names (`node_modules`, `.git`, `file.txt`), glob wildcards (`*.tmp`, `*.log`), directory indicator slashes (`cache/`), root-anchored paths (`/build`), and relative paths (`docs/internal/*`).
 
 ---
 

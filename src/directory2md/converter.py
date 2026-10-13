@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import email
 from email import policy
 from email.parser import BytesParser
+import fnmatch
 import logging
 import os
 from pathlib import Path
@@ -40,6 +41,65 @@ from directory2md.parsers.html_parser import HTMLParser, extract_html_embedded_i
 logger = logging.getLogger("directory2md")
 
 
+def should_exclude(
+    name: str,
+    rel_path: Path,
+    is_dir: bool,
+    exclude_patterns: List[str],
+) -> bool:
+    """Determine whether a file or directory matches any exclusion pattern.
+
+    Supports:
+    - Base names: e.g. '.git', 'node_modules', 'secret.txt'
+    - Wildcard / glob patterns: e.g. '*.tmp', '*.bak', 'temp_*'
+    - Directory indicators (trailing slash): e.g. 'cache/', 'vendor/' (matches directories only)
+    - Root-anchored paths (leading slash or './'): e.g. '/build', './node_modules'
+    - Relative paths: e.g. 'docs/internal/*', 'data/temp'
+
+    Args:
+        name: File or directory name.
+        rel_path: Relative path from source directory root.
+        is_dir: True if evaluating a directory, False if evaluating a file.
+        exclude_patterns: List of exclusion pattern strings.
+
+    Returns:
+        True if the path or name matches any exclusion pattern, False otherwise.
+    """
+    if not exclude_patterns:
+        return False
+
+    rel_str = rel_path.as_posix()
+
+    for raw_pat in exclude_patterns:
+        if not raw_pat:
+            continue
+        pat = str(raw_pat).strip()
+        if not pat or pat.startswith("#"):
+            continue
+
+        dir_only = pat.endswith("/")
+        pat_clean = pat.rstrip("/")
+
+        if dir_only and not is_dir:
+            continue
+
+        is_rooted = pat_clean.startswith("/") or pat_clean.startswith("./")
+        clean = pat_clean.lstrip("/").removeprefix("./")
+
+        if is_rooted:
+            if fnmatch.fnmatch(rel_str, clean) or rel_str == clean:
+                return True
+        else:
+            if "/" not in clean:
+                if fnmatch.fnmatch(name, clean):
+                    return True
+            else:
+                if fnmatch.fnmatch(rel_str, clean) or fnmatch.fnmatch(rel_str, f"*/{clean}"):
+                    return True
+
+    return False
+
+
 @dataclass
 class ConversionStats:
     """Statistics for directory conversion."""
@@ -47,6 +107,7 @@ class ConversionStats:
     total_scanned: int = 0
     converted: int = 0
     skipped: int = 0
+    excluded: int = 0
     errors: List[Tuple[str, str]] = field(default_factory=list)
 
     @property
@@ -65,6 +126,7 @@ class DirectoryConverter:
         log_callback: Optional[Callable[[str], None]] = None,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
         config: Optional[Config] = None,
+        exclude: Optional[List[str]] = None,
     ) -> None:
         """Initialize converter.
 
@@ -74,7 +136,8 @@ class DirectoryConverter:
             verbose: Enable verbose logging.
             log_callback: Optional callback receiving progress log messages.
             progress_callback: Optional callback receiving (current, total, filename) for progress reporting.
-            config: Optional Config instance for AI and format settings.
+            config: Optional Config instance for AI, format, and exclusion settings.
+            exclude: Optional list of files, directories, or patterns to exclude.
         """
         self.max_age_days = max_age_days
         self.force = force
@@ -82,6 +145,12 @@ class DirectoryConverter:
         self.log_callback = log_callback or (lambda msg: None)
         self.progress_callback = progress_callback
         self.config = config
+        if exclude is not None:
+            self.exclude = list(exclude)
+        elif config is not None:
+            self.exclude = list(config.exclude)
+        else:
+            self.exclude = []
 
     def log(self, message: str) -> None:
         """Log message via callback and logger."""
@@ -193,12 +262,29 @@ class DirectoryConverter:
         files_to_process: List[Tuple[Path, Path]] = []
         for dirpath, dirnames, filenames in os.walk(src_root):
             rel_dir = Path(dirpath).relative_to(src_root)
+
+            # Prune excluded directories in-place so os.walk does not recurse into them
+            for d in list(dirnames):
+                rel_d = rel_dir / d if str(rel_dir) != "." else Path(d)
+                if should_exclude(d, rel_d, is_dir=True, exclude_patterns=self.exclude):
+                    dirnames.remove(d)
+                    stats.excluded += 1
+                    if self.verbose:
+                        self.log(f"Excluding directory: {rel_d}")
+
             current_dst_dir = dst_root / rel_dir
             current_dst_dir.mkdir(parents=True, exist_ok=True)
 
             for filename in filenames:
                 src_file = Path(dirpath) / filename
                 rel_file = rel_dir / filename if str(rel_dir) != "." else Path(filename)
+
+                # Check file exclusion
+                if should_exclude(filename, rel_file, is_dir=False, exclude_patterns=self.exclude):
+                    stats.excluded += 1
+                    if self.verbose:
+                        self.log(f"Excluding file: {rel_file}")
+                    continue
 
                 # When a force target is specified, filter only that file or directory members recursively
                 if force_target_path is not None:
@@ -881,6 +967,7 @@ def convert_directory(
     log_callback: Optional[Callable[[str], None]] = None,
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
     config: Optional[Config] = None,
+    exclude: Optional[List[str]] = None,
 ) -> ConversionStats:
     """Convenience helper to convert a directory to markdown with default settings."""
     converter = DirectoryConverter(
@@ -890,5 +977,6 @@ def convert_directory(
         log_callback=log_callback,
         progress_callback=progress_callback,
         config=config,
+        exclude=exclude,
     )
     return converter.convert_directory(src_dir, dst_dir)

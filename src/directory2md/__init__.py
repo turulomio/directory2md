@@ -10,7 +10,12 @@ from directory2md.config import (
     load_config,
     update_missing_config_keys,
 )
-from directory2md.converter import ConversionStats, DirectoryConverter, convert_directory
+from directory2md.converter import (
+    ConversionStats,
+    DirectoryConverter,
+    convert_directory,
+    should_exclude,
+)
 from directory2md.mapper import (
     CONTAINER_SUFFIX,
     MD_SUFFIX,
@@ -37,6 +42,7 @@ __all__ = [
     "load_config",
     "main",
     "resolve_mapping_details",
+    "should_exclude",
     "update_missing_config_keys",
 ]
 

@@ -37,6 +37,7 @@ class Config:
     days: int = 180
     force: bool = False
     verbose: bool = False
+    exclude: List[str] = field(default_factory=list)
     ai: AIConfig = field(default_factory=AIConfig)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -44,6 +45,7 @@ class Config:
             "days": self.days,
             "force": self.force,
             "verbose": self.verbose,
+            "exclude": self.exclude,
             "ai": self.ai.to_dict(),
         }
 
@@ -55,6 +57,7 @@ DEFAULT_CONFIG_TEMPLATE = """# directory2md configuration file
 days: 180                 # Age threshold in days to re-convert existing markdown files (default: 180)
 force: false              # Force re-conversion of all files regardless of age
 verbose: false            # Show detailed progress for each file
+exclude: []               # List of files, directories, or glob patterns to exclude (e.g. [".git", "node_modules", "*.tmp"])
 
 # AI & Ollama settings
 ai:
@@ -96,7 +99,7 @@ ai:
 
 logger = logging.getLogger("directory2md.config")
 
-ROOT_KEYS_ORDER = ["days", "force", "verbose", "ai"]
+ROOT_KEYS_ORDER = ["days", "force", "verbose", "exclude", "ai"]
 
 AI_KEYS_ORDER = [
     "enabled",
@@ -115,6 +118,7 @@ ROOT_TEMPLATES = {
     "days": "days: 180                 # Age threshold in days to re-convert existing markdown files (default: 180)\n",
     "force": "force: false              # Force re-conversion of all files regardless of age\n",
     "verbose": "verbose: false            # Show detailed progress for each file\n",
+    "exclude": 'exclude: []               # List of files, directories, or glob patterns to exclude (e.g. [".git", "node_modules", "*.tmp"])\n',
     "ai": "\n# AI & Ollama settings\nai:\n",
 }
 
@@ -186,7 +190,7 @@ def update_missing_config_keys(config_file: Path) -> List[str]:
 
     if not content.strip():
         create_default_config_file(config_file)
-        return ["days", "force", "verbose", "ai"]
+        return ["days", "force", "verbose", "exclude", "ai"]
 
     try:
         data = yaml.safe_load(content)
@@ -211,8 +215,8 @@ def update_missing_config_keys(config_file: Path) -> List[str]:
     if file_lines and not file_lines[-1].endswith("\n"):
         file_lines[-1] += "\n"
 
-    # 1. Update missing root keys (days, force, verbose)
-    for root_key in ["days", "force", "verbose"]:
+    # 1. Update missing root keys (days, force, verbose, exclude)
+    for root_key in ["days", "force", "verbose", "exclude"]:
         if root_key in missing_root:
             target_idx = None
             for next_key in ROOT_KEYS_ORDER[ROOT_KEYS_ORDER.index(root_key) + 1:]:
@@ -304,10 +308,18 @@ def load_config(config_file: Path, update_if_missing: bool = True) -> Config:
             timeout_seconds=int(ai_data.get("timeout_seconds", 60)),
         )
 
+        raw_exclude = data.get("exclude")
+        exclude_list: List[str] = []
+        if isinstance(raw_exclude, list):
+            exclude_list = [str(item).strip() for item in raw_exclude if str(item).strip()]
+        elif isinstance(raw_exclude, str) and raw_exclude.strip():
+            exclude_list = [raw_exclude.strip()]
+
         return Config(
             days=int(data.get("days", 180)),
             force=bool(data.get("force", False)),
             verbose=bool(data.get("verbose", False)),
+            exclude=exclude_list,
             ai=ai_config,
         )
     except Exception:

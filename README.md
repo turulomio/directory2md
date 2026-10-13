@@ -74,7 +74,7 @@ uv run directory2md <source_directory> <destination_directory>
 ### Options
 
 ```text
-usage: directory2md [-h] [-f [TARGET]] [-v] source destination
+usage: directory2md [-h] [-f [TARGET]] [-e EXCLUDE] [-v] source destination
 
 Recursively convert a directory to Markdown with matching structure.
 
@@ -85,6 +85,8 @@ positional arguments:
 options:
   -h, --help            Show this help message and exit
   -f, --force [TARGET]  Force re-conversion of all files, or a specific file or directory (recursively)
+  -e, --exclude EXCLUDE
+                        Exclude a file, directory, or pattern (can be specified multiple times)
   -v, --verbose         Show detailed progress for each file and initial configuration
 ```
 
@@ -105,6 +107,9 @@ uv run directory2md ~/Documents ~/Documents_md --force reports/2026
 
 # Force re-conversion of a specific single file
 uv run directory2md ~/Documents ~/Documents_md --force invoice.pdf
+
+# Exclude specific directories or file patterns via CLI
+uv run directory2md ~/Documents ~/Documents_md --exclude node_modules --exclude "*.tmp"
 ```
 
 ### Configuration (`directory2md.yaml`)
@@ -116,6 +121,7 @@ On the first run, `directory2md` automatically generates a `directory2md.yaml` c
 days: 180                 # Age threshold in days to re-convert existing markdown files (default: 180)
 force: false              # Force re-conversion of all files regardless of age
 verbose: false            # Show detailed progress for each file
+exclude: []               # List of files, directories, or glob patterns to exclude (e.g. [".git", "node_modules", "*.tmp"])
 
 # AI & Ollama settings
 ai:
@@ -136,6 +142,47 @@ ai:
   max_video_frames: 3     # Maximum keyframes to sample from a video for AI analysis
   timeout_seconds: 60     # Request timeout in seconds for Ollama requests
 ```
+
+### Excluding Files and Directories
+
+You can exclude specific directories or files from being converted to Markdown. Exclusions can be configured persistently in `directory2md.yaml` or specified on the fly via the command line.
+
+#### 1. Configuration in `directory2md.yaml`
+
+Edit the `exclude` list in your destination `directory2md.yaml`:
+
+```yaml
+exclude:
+  - ".git"                # Skips version control directories
+  - "node_modules"        # Skips dependency folders anywhere in the tree
+  - "__pycache__"         # Skips Python bytecode folders
+  - "*.tmp"               # Skips temporary files by extension
+  - "*.bak"               # Skips backup files
+  - "*.log"               # Skips log files
+  - "cache/"              # Trailing slash: applies exclusively to directories named 'cache'
+  - "/build"              # Leading slash: applies only to 'build' at the source root
+  - "docs/internal/*"     # Relative glob pattern
+  - "secret.txt"          # Exact filename
+```
+
+#### 2. Command-Line Options (`-e` / `--exclude`)
+
+Exclusions can also be passed directly to the CLI and combined with your config file:
+
+```bash
+uv run directory2md ~/Documents ~/Documents_md -e node_modules -e "*.tmp" -e cache/
+```
+
+#### 3. How Exclusions Work
+
+- **Directory Pruning**: When a directory matches an exclusion rule (e.g. `node_modules` or `.git`), `directory2md` prunes it immediately from directory traversal. Its contents are never traversed, files inside are not scanned, and no destination directory is created.
+- **File Skipping**: Files matching an exclusion pattern (e.g. `*.log` or `secret.txt`) are skipped during processing.
+- **Pattern Matching Rules**:
+  - **Base names** (e.g., `node_modules`, `file.txt`): Match any folder or file with that name anywhere in the source tree.
+  - **Glob wildcards** (e.g., `*.tmp`, `temp_*`): Match filenames or extensions.
+  - **Trailing slash** (e.g., `cache/`): Restricts match to directories only.
+  - **Rooted patterns** (e.g., `/build` or `./vendor`): Match only at the source directory root.
+  - **Relative paths** (e.g., `docs/internal/*`): Match relative to the source hierarchy.
 
 ---
 
