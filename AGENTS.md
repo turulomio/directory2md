@@ -123,3 +123,4 @@ The `markdown-it-py` library is required across the project:
   - Python 3.14+ with full type annotations (`from __future__ import annotations`).
   - Dataclasses for models (`DocumentMetadata`, `EmailHeaders`).
   - Safe fallbacks for optional binary formats so missing parser dependencies do not halt execution.
+  - Git commits must always be created in English using `git commit -am "<message>"`.
