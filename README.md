@@ -26,6 +26,7 @@ A modern, high-performance command-line tool and Python library managed with **u
 - **YAML Frontmatter Metadata**:
   - Every generated `.md` file begins with clean YAML frontmatter containing:
     - `ia`: Boolean (`true` or `false`) indicating whether the document was processed/generated with AI.
+    - `ia_timeout`: Boolean (`true`), present if AI processing timed out.
     - `original_path`: Absolute path to original file.
     - `filename`: Base name of original file.
     - `file_size_bytes`: Original file size.

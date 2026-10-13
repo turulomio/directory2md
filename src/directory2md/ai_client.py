@@ -18,6 +18,10 @@ from directory2md.config import AIConfig
 logger = logging.getLogger("directory2md.ai")
 
 
+class AITimeoutError(TimeoutError):
+    """Raised when an AI operation (Ollama or Whisper) exceeds its configured timeout."""
+
+
 def query_ollama_vision(
     image_bytes: bytes,
     prompt: str,
@@ -62,7 +66,15 @@ def query_ollama_vision(
             if resp.status == 200:
                 body = json.loads(resp.read().decode("utf-8"))
                 return str(body.get("response", "")).strip()
+    except (TimeoutError, urllib.error.URLError) as exc:
+        if isinstance(exc, TimeoutError) or "timed out" in str(exc).lower():
+            logger.warning("Ollama vision query timed out after %ds for model '%s'", ai_config.timeout_seconds, ai_config.vision_model)
+            raise AITimeoutError(f"Ollama vision query timed out after {ai_config.timeout_seconds}s") from exc
+        logger.warning("Ollama vision query failed for model '%s': %s", ai_config.vision_model, exc)
     except Exception as exc:
+        if "timed out" in str(exc).lower():
+            logger.warning("Ollama vision query timed out after %ds for model '%s'", ai_config.timeout_seconds, ai_config.vision_model)
+            raise AITimeoutError(f"Ollama vision query timed out after {ai_config.timeout_seconds}s") from exc
         logger.warning("Ollama vision query failed for model '%s': %s", ai_config.vision_model, exc)
 
     return None
@@ -112,7 +124,15 @@ def query_ollama_multiple_images(
             if resp.status == 200:
                 body = json.loads(resp.read().decode("utf-8"))
                 return str(body.get("response", "")).strip()
+    except (TimeoutError, urllib.error.URLError) as exc:
+        if isinstance(exc, TimeoutError) or "timed out" in str(exc).lower():
+            logger.warning("Ollama multi-image vision query timed out after %ds", ai_config.timeout_seconds)
+            raise AITimeoutError(f"Ollama multi-image vision query timed out after {ai_config.timeout_seconds}s") from exc
+        logger.warning("Ollama multi-image vision query failed: %s", exc)
     except Exception as exc:
+        if "timed out" in str(exc).lower():
+            logger.warning("Ollama multi-image vision query timed out after %ds", ai_config.timeout_seconds)
+            raise AITimeoutError(f"Ollama multi-image vision query timed out after {ai_config.timeout_seconds}s") from exc
         logger.warning("Ollama multi-image vision query failed: %s", exc)
 
     return None
@@ -180,6 +200,7 @@ def transcribe_audio_whisper(audio_path: Path, ai_config: Optional[AIConfig] = N
     if not whisper_cmd:
         return None
 
+    timeout_val = ai_config.timeout_seconds if (ai_config and ai_config.timeout_seconds) else 120
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
             cmd = [
@@ -195,11 +216,16 @@ def transcribe_audio_whisper(audio_path: Path, ai_config: Optional[AIConfig] = N
             if ai_config and ai_config.language:
                 cmd.extend(["--language", ai_config.language])
 
-            subprocess.run(cmd, check=True, timeout=120)
+            subprocess.run(cmd, check=True, timeout=timeout_val)
             txt_files = list(Path(tmpdir).glob("*.txt"))
             if txt_files:
                 return txt_files[0].read_text(encoding="utf-8").strip()
+    except subprocess.TimeoutExpired as exc:
+        logger.warning("Whisper transcription timed out for '%s' after %ss", audio_path, exc.timeout)
+        raise AITimeoutError(f"Whisper audio transcription timed out after {exc.timeout}s") from exc
     except Exception as exc:
+        if "timed out" in str(exc).lower():
+            raise AITimeoutError(f"Whisper audio transcription timed out: {exc}") from exc
         logger.warning("Whisper transcription failed for '%s': %s", audio_path, exc)
 
     return None

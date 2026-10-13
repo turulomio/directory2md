@@ -9,7 +9,7 @@ import mimetypes
 from pathlib import Path
 from typing import Optional, Tuple
 
-from directory2md.ai_client import query_ollama_vision
+from directory2md.ai_client import AITimeoutError, query_ollama_vision
 from directory2md.config import Config
 from directory2md.models import DocumentMetadata
 from directory2md.parsers.base import BaseParser
@@ -88,43 +88,59 @@ class ImageParser(BaseParser):
         # AI Processing (OCR and Description) if enabled
         used_ai = False
         all_ai_text = []
+        ia_timeout = False
+        timeout_msg = ""
 
         if self.config and self.config.ai.enabled and self.config.ai.vision_model and raw_bytes:
             # 1. OCR text extraction
-            ocr_text = query_ollama_vision(
-                raw_bytes,
-                prompt=self.config.ai.prompt_image_ocr,
-                ai_config=self.config.ai,
-            )
-            if ocr_text:
-                used_ai = True
-                all_ai_text.append(ocr_text)
-                lines.extend([
-                    "## AI OCR (Extracted Text)",
-                    "",
-                    ocr_text,
-                    "",
-                ])
+            try:
+                ocr_text = query_ollama_vision(
+                    raw_bytes,
+                    prompt=self.config.ai.prompt_image_ocr,
+                    ai_config=self.config.ai,
+                )
+                if ocr_text:
+                    used_ai = True
+                    all_ai_text.append(ocr_text)
+                    lines.extend([
+                        "## AI OCR (Extracted Text)",
+                        "",
+                        ocr_text,
+                        "",
+                    ])
+            except AITimeoutError as exc:
+                ia_timeout = True
+                timeout_msg = str(exc)
 
             # 2. Image description
-            desc_text = query_ollama_vision(
-                raw_bytes,
-                prompt=self.config.ai.prompt_image_description,
-                ai_config=self.config.ai,
-            )
-            if desc_text:
-                used_ai = True
-                all_ai_text.append(desc_text)
-                lines.extend([
-                    "## AI Image Description",
-                    "",
-                    desc_text,
-                    "",
-                ])
+            try:
+                desc_text = query_ollama_vision(
+                    raw_bytes,
+                    prompt=self.config.ai.prompt_image_description,
+                    ai_config=self.config.ai,
+                )
+                if desc_text:
+                    used_ai = True
+                    all_ai_text.append(desc_text)
+                    lines.extend([
+                        "## AI Image Description",
+                        "",
+                        desc_text,
+                        "",
+                    ])
+            except AITimeoutError as exc:
+                ia_timeout = True
+                timeout_msg = str(exc)
 
         metadata.ia = used_ai
 
-        if not used_ai:
+        if ia_timeout:
+            metadata.ia_timeout = True
+            lines.extend([
+                f"> ⚠️ **AI Timeout**: Image AI analysis timed out ({timeout_msg or 'Processing limit exceeded'}).",
+                "",
+            ])
+        elif not used_ai:
             lines.extend([
                 "> *Image analysis not available (Ollama vision model unavailable or AI disabled).* ",
                 "",

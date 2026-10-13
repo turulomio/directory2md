@@ -21,6 +21,7 @@ This document outlines the architecture, conventions, workflows, and lessons lea
 4. **YAML Frontmatter Headers**:
    - Every generated `.directory2md.md` file includes frontmatter containing:
      - `ia`: Boolean (`true`/`false`) flag indicating whether the output was generated with AI.
+     - `ia_timeout`: Boolean (`true`), included if AI processing timed out.
      - `original_path`: Absolute path to original file.
      - `filename`: Base filename.
      - `file_size_bytes`: Original file size in bytes.

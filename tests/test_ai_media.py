@@ -275,3 +275,47 @@ def test_ai_language_prompt_and_whisper_args(tmp_path: Path):
         mock_transcribe.assert_called_once_with(dummy_audio, ai_config=ai_cfg)
         assert meta.ia is True
 
+
+def test_ai_timeout_handling(tmp_path: Path):
+    from directory2md.ai_client import AITimeoutError
+    from directory2md.markdown_utils import serialize_document
+
+    cfg = Config(ai=AIConfig(enabled=True, vision_model="llava", audio_model="base", timeout_seconds=30))
+
+    # 1. Image timeout
+    img_file = tmp_path / "timeout.png"
+    img_file.write_bytes(b"\x89PNG\r\n\x1a\n...")
+    with patch("directory2md.parsers.image_parser.query_ollama_vision", side_effect=AITimeoutError("Ollama query timed out after 30s")):
+        img_parser = ImageParser(config=cfg)
+        img_meta, img_text = img_parser.parse(img_file)
+        assert img_meta.ia is False
+        assert img_meta.ia_timeout is True
+        assert "AI Timeout" in img_text
+        doc_md = serialize_document(img_meta, img_text)
+        assert "ia_timeout: true" in doc_md
+
+    # 2. Audio timeout
+    audio_file = tmp_path / "timeout.mp3"
+    audio_file.write_bytes(b"audio_bytes")
+    with patch("directory2md.parsers.media_parser.transcribe_audio_whisper", side_effect=AITimeoutError("Whisper timed out after 30s")):
+        audio_parser = AudioParser(config=cfg)
+        audio_meta, audio_text = audio_parser.parse(audio_file)
+        assert audio_meta.ia is False
+        assert audio_meta.ia_timeout is True
+        assert "AI Timeout" in audio_text
+        doc_md = serialize_document(audio_meta, audio_text)
+        assert "ia_timeout: true" in doc_md
+
+    # 3. Video timeout
+    video_file = tmp_path / "timeout.mp4"
+    video_file.write_bytes(b"video_bytes")
+    with patch("directory2md.parsers.media_parser.extract_video_keyframes", return_value=[b"frame1"]):
+        with patch("directory2md.parsers.media_parser.query_ollama_multiple_images", side_effect=AITimeoutError("Ollama timed out after 30s")):
+            video_parser = VideoParser(config=cfg)
+            video_meta, video_text = video_parser.parse(video_file)
+            assert video_meta.ia is False
+            assert video_meta.ia_timeout is True
+            assert "AI Timeout" in video_text
+            doc_md = serialize_document(video_meta, video_text)
+            assert "ia_timeout: true" in doc_md
+

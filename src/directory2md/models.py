@@ -57,6 +57,7 @@ class DocumentMetadata:
     origin_type: str = "file"
     email_headers: Optional[EmailHeaders] = None
     ia: bool = False
+    ia_timeout: bool = False
     conversion_time: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -73,6 +74,8 @@ class DocumentMetadata:
             "origin_type": self.origin_type,
             "ia": self.ia,
         }
+        if self.ia_timeout:
+            res["ia_timeout"] = True
         if self.conversion_time is not None:
             res["conversion_time"] = self.conversion_time
         if self.date_str:
