@@ -74,7 +74,7 @@ uv run directory2md <source_directory> <destination_directory>
 ### Options
 
 ```text
-usage: directory2md [-h] [-f [TARGET]] [-e EXCLUDE] [-v] source destination
+usage: directory2md [-h] [-f [TARGET]] [-v] source destination
 
 Recursively convert a directory to Markdown with matching structure.
 
@@ -85,8 +85,6 @@ positional arguments:
 options:
   -h, --help            Show this help message and exit
   -f, --force [TARGET]  Force re-conversion of all files, or a specific file or directory (recursively)
-  -e, --exclude EXCLUDE
-                        Exclude a file, directory, or pattern (can be specified multiple times)
   -v, --verbose         Show detailed progress for each file and initial configuration
 ```
 
@@ -107,9 +105,6 @@ uv run directory2md ~/Documents ~/Documents_md --force reports/2026
 
 # Force re-conversion of a specific single file
 uv run directory2md ~/Documents ~/Documents_md --force invoice.pdf
-
-# Exclude specific directories or file patterns via CLI
-uv run directory2md ~/Documents ~/Documents_md --exclude node_modules --exclude "*.tmp"
 ```
 
 ### Configuration (`directory2md.yaml`)
@@ -145,11 +140,11 @@ ai:
 
 ### Excluding Files and Directories
 
-You can exclude specific directories or files from being converted to Markdown. Exclusions can be configured persistently in `directory2md.yaml` or specified on the fly via the command line.
+You can exclude specific directories or files from being converted to Markdown by configuring the `exclude` list in your destination `directory2md.yaml`.
 
 #### 1. Configuration in `directory2md.yaml`
 
-Edit the `exclude` list in your destination `directory2md.yaml`:
+Edit the `exclude` list in `directory2md.yaml`:
 
 ```yaml
 exclude:
@@ -165,17 +160,9 @@ exclude:
   - "secret.txt"          # Exact filename
 ```
 
-#### 2. Command-Line Options (`-e` / `--exclude`)
+#### 2. How Exclusions Work
 
-Exclusions can also be passed directly to the CLI and combined with your config file:
-
-```bash
-uv run directory2md ~/Documents ~/Documents_md -e node_modules -e "*.tmp" -e cache/
-```
-
-#### 3. How Exclusions Work
-
-- **Directory Pruning**: When a directory matches an exclusion rule (e.g. `node_modules` or `.git`), `directory2md` prunes it immediately from directory traversal. Its contents are never traversed, files inside are not scanned, and no destination directory is created.
+- **Directory Pruning**: When a directory matches an exclusion rule (e.g. `node_modules` or `.git`), `directory2md` prunes it immediately during traversal (`os.walk`). Its contents are never traversed, files inside are not scanned, and no empty destination directory is created.
 - **File Skipping**: Files matching an exclusion pattern (e.g. `*.log` or `secret.txt`) are skipped during processing.
 - **Pattern Matching Rules**:
   - **Base names** (e.g., `node_modules`, `file.txt`): Match any folder or file with that name anywhere in the source tree.

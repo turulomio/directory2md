@@ -43,13 +43,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force re-conversion of all files, or a specific file or directory (recursively)",
     )
     parser.add_argument(
-        "-e",
-        "--exclude",
-        action="append",
-        default=[],
-        help="Exclude a file, directory, or pattern (can be specified multiple times)",
-    )
-    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -149,10 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     force = args.force if args.force else config.force
     verbose = args.verbose or config.verbose
 
-    # Combine exclude patterns from config and CLI arguments
     exclude_patterns: list[str] = list(config.exclude)
-    if args.exclude:
-        exclude_patterns.extend(args.exclude)
 
     # Validate force setting if it came from config
     if err := _validate_force_target(force, src_dir, src_resolved):

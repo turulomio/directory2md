@@ -136,7 +136,7 @@ def test_convert_directory_excludes_files_and_directories(tmp_path: Path):
     assert not (dst / "node_modules").exists()
 
 
-def test_cli_exclude_argument(tmp_path: Path, capsys):
+def test_cli_exclude_via_config(tmp_path: Path, capsys):
     src = tmp_path / "src"
     dst = tmp_path / "dst"
     src.mkdir()
@@ -149,8 +149,12 @@ def test_cli_exclude_argument(tmp_path: Path, capsys):
     main([str(src), str(dst)])
     capsys.readouterr()
 
-    # Run 2: use CLI -e / --exclude flags
-    code = main([str(src), str(dst), "-e", "excluded.txt", "--exclude", "*.tmp", "--verbose"])
+    # Configure exclude list in destination directory2md.yaml
+    cfg_file = dst / "directory2md.yaml"
+    cfg_file.write_text("exclude:\n  - 'excluded.txt'\n  - '*.tmp'\n", encoding="utf-8")
+
+    # Run 2: executes conversion using configuration file
+    code = main([str(src), str(dst), "--verbose"])
     assert code == 0
     captured = capsys.readouterr()
     assert "Exclude:     excluded.txt, *.tmp" in captured.out
