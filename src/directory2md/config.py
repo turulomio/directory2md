@@ -13,6 +13,7 @@ class AIConfig:
     """Configuration for AI / Ollama processing."""
 
     enabled: bool = False
+    language: str = "es"
     ollama_url: str = "http://localhost:11434"
     vision_model: str = ""
     audio_model: str = ""
@@ -55,6 +56,7 @@ verbose: false            # Show detailed progress for each file
 # AI & Ollama settings
 ai:
   enabled: false          # Set to true to enable AI processing (OCR, descriptions for images, audio, video)
+  language: "es"          # Language of AI results, summaries, and descriptions (e.g., "es", "en", "fr")
   ollama_url: "http://localhost:11434"  # Default Ollama endpoint (localhost:11434)
   
   # Models (configure freely according to the models you have in Ollama)
@@ -104,6 +106,7 @@ def load_config(config_file: Path) -> Config:
 
         ai_config = AIConfig(
             enabled=bool(ai_data.get("enabled", False)),
+            language=str(ai_data.get("language", "es")),
             ollama_url=str(ai_data.get("ollama_url", "http://localhost:11434")),
             vision_model=str(ai_data.get("vision_model", "")),
             audio_model=str(ai_data.get("audio_model", "")),

@@ -39,9 +39,13 @@ def query_ollama_vision(
     b64_image = base64.b64encode(image_bytes).decode("ascii")
     endpoint = f"{ai_config.ollama_url.rstrip('/')}/api/generate"
 
+    full_prompt = prompt
+    if ai_config.language and "verbatim" not in prompt.lower():
+        full_prompt = f"{prompt}\nPlease respond in language: {ai_config.language}."
+
     payload = {
         "model": ai_config.vision_model,
-        "prompt": prompt,
+        "prompt": full_prompt,
         "images": [b64_image],
         "stream": False,
     }
@@ -85,9 +89,13 @@ def query_ollama_multiple_images(
     b64_images = [base64.b64encode(b).decode("ascii") for b in images_bytes]
     endpoint = f"{ai_config.ollama_url.rstrip('/')}/api/generate"
 
+    full_prompt = prompt
+    if ai_config.language:
+        full_prompt = f"{prompt}\nPlease respond in language: {ai_config.language}."
+
     payload = {
         "model": ai_config.vision_model,
-        "prompt": prompt,
+        "prompt": full_prompt,
         "images": b64_images,
         "stream": False,
     }
@@ -153,11 +161,12 @@ def extract_video_keyframes(video_path: Path, max_frames: int = 3) -> List[bytes
     return frames
 
 
-def transcribe_audio_whisper(audio_path: Path) -> Optional[str]:
+def transcribe_audio_whisper(audio_path: Path, ai_config: Optional[AIConfig] = None) -> Optional[str]:
     """Transcribe audio using local whisper CLI tool if installed.
 
     Args:
         audio_path: Path to audio file.
+        ai_config: Optional AI configuration specifying language.
 
     Returns:
         Transcribed text or None.
@@ -175,6 +184,9 @@ def transcribe_audio_whisper(audio_path: Path) -> Optional[str]:
                 "--output_format",
                 "txt",
             ]
+            if ai_config and ai_config.language:
+                cmd.extend(["--language", ai_config.language])
+
             subprocess.run(cmd, check=True, timeout=120)
             txt_files = list(Path(tmpdir).glob("*.txt"))
             if txt_files:

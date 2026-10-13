@@ -5,6 +5,11 @@ from pathlib import Path
 from unittest.mock import patch
 import pytest
 
+from directory2md.ai_client import (
+    query_ollama_multiple_images,
+    query_ollama_vision,
+    transcribe_audio_whisper,
+)
 from directory2md.config import AIConfig, Config, create_default_config_file, load_config
 from directory2md.converter import convert_directory
 from directory2md.markdown_utils import parse_frontmatter
@@ -20,8 +25,17 @@ def test_config_create_and_load(tmp_path: Path):
     config = load_config(cfg_file)
     assert config.days == 180
     assert not config.ai.enabled
+    assert config.ai.language == "es"
     assert config.ai.ollama_url == "http://localhost:11434"
     assert config.ai.vision_model == ""
+
+
+def test_config_custom_language(tmp_path: Path):
+    cfg_file = tmp_path / "directory2md.yaml"
+    cfg_file.write_text("ai:\n  language: 'en'\n", encoding="utf-8")
+    config = load_config(cfg_file)
+    assert config.ai.language == "en"
+
 
 
 def test_ia_frontmatter_attribute_default_false(tmp_path: Path):
@@ -132,3 +146,60 @@ def test_audio_and_video_parsers(tmp_path: Path):
             assert v_meta.ia is True
             assert "## AI Video Scene Analysis" in v_text
             assert "presentación técnica" in v_text
+
+
+def test_ai_language_prompt_and_whisper_args(tmp_path: Path):
+    ai_cfg = AIConfig(enabled=True, vision_model="llava", language="fr")
+
+    # 1. Test query_ollama_vision appends language instruction for non-verbatim prompts
+    captured_payloads = []
+
+    def fake_urlopen(req, timeout):
+        import json
+        from unittest.mock import MagicMock
+        data = json.loads(req.data.decode("utf-8"))
+        captured_payloads.append(data)
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = json.dumps({"response": "ok"}).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        # Description prompt should have language appended
+        query_ollama_vision(b"image_bytes", prompt="Describe the scene.", ai_config=ai_cfg)
+        assert len(captured_payloads) == 1
+        assert "Please respond in language: fr." in captured_payloads[0]["prompt"]
+
+        # Verbatim prompt should NOT have language appended
+        query_ollama_vision(b"image_bytes", prompt="Extract text verbatim.", ai_config=ai_cfg)
+        assert len(captured_payloads) == 2
+        assert "Please respond in language: fr." not in captured_payloads[1]["prompt"]
+
+        # Multiple images query should have language appended
+        query_ollama_multiple_images([b"f1"], prompt="Summarize frames.", ai_config=ai_cfg)
+        assert len(captured_payloads) == 3
+        assert "Please respond in language: fr." in captured_payloads[2]["prompt"]
+
+    # 2. Test whisper gets --language argument and AudioParser passes ai_config
+    dummy_audio = tmp_path / "test.mp3"
+    dummy_audio.write_bytes(b"audio")
+
+    with patch("shutil.which", return_value="/usr/bin/whisper"):
+        with patch("subprocess.run") as mock_run:
+            transcribe_audio_whisper(dummy_audio, ai_config=ai_cfg)
+            mock_run.assert_called_once()
+            cmd = mock_run.call_args[0][0]
+            assert "--language" in cmd
+            lang_idx = cmd.index("--language")
+            assert cmd[lang_idx + 1] == "fr"
+
+    # 3. AudioParser passes ai_config to transcribe_audio_whisper
+    cfg = Config(ai=ai_cfg)
+    audio_parser = AudioParser(config=cfg)
+    with patch("directory2md.parsers.media_parser.transcribe_audio_whisper") as mock_transcribe:
+        mock_transcribe.return_value = "Bonjour tout le monde"
+        meta, _ = audio_parser.parse(dummy_audio)
+        mock_transcribe.assert_called_once_with(dummy_audio, ai_config=ai_cfg)
+        assert meta.ia is True
+

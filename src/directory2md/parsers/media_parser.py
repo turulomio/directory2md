@@ -69,7 +69,7 @@ class AudioParser(BaseParser):
 
         transcription = None
         if self.config and self.config.ai.enabled:
-            transcription = transcribe_audio_whisper(filepath)
+            transcription = transcribe_audio_whisper(filepath, ai_config=self.config.ai)
 
         if transcription:
             metadata.ia = True

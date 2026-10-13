@@ -102,7 +102,27 @@ uv run directory2md ~/Documents ~/Documents_md --force reports/2026
 uv run directory2md ~/Documents ~/Documents_md --force invoice.pdf
 ```
 
+### Configuration (`directory2md.yaml`)
+
+On the first run, `directory2md` automatically generates a `directory2md.yaml` configuration file in the destination directory:
+
+```yaml
+# General conversion settings
+days: 180                 # Age threshold in days to re-convert existing markdown files (default: 180)
+force: false              # Force re-conversion of all files regardless of age
+verbose: false            # Show detailed progress for each file
+
+# AI & Ollama settings
+ai:
+  enabled: false          # Enable AI processing (OCR, descriptions for images, audio, video)
+  language: "es"          # Language of AI results, summaries, and descriptions (e.g., "es", "en", "fr")
+  ollama_url: "http://localhost:11434"
+  vision_model: ""        # e.g., "llava" or "llama3.2-vision"
+  audio_model: ""         # e.g., "whisper"
+```
+
 ---
+
 
 ## Python API Usage
 
