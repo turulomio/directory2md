@@ -333,7 +333,7 @@ class DirectoryConverter:
             fm_extras.update(extra_frontmatter)
 
         full_md = serialize_document(metadata, content, extra_frontmatter=fm_extras)
-        dst_file.write_text(full_md, encoding="utf-8")
+        dst_file.write_text(full_md, encoding="utf-8", errors="replace")
 
     def _convert_archive(
         self,
@@ -357,7 +357,7 @@ class DirectoryConverter:
             archive_summary,
             extra_frontmatter={"original_path": str(archive_path.resolve()), "is_archive_root": True},
         )
-        primary_md.write_text(primary_content, encoding="utf-8")
+        primary_md.write_text(primary_content, encoding="utf-8", errors="replace")
 
         # 2. Extract and recursively process children
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -462,7 +462,7 @@ class DirectoryConverter:
             content,
             extra_frontmatter={"original_path": str(html_path.resolve()), "is_archive_root": True},
         )
-        primary_md.write_text(primary_content, encoding="utf-8")
+        primary_md.write_text(primary_content, encoding="utf-8", errors="replace")
 
         # 2. Extract and process each embedded image into dst_container
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -579,6 +579,7 @@ class DirectoryConverter:
         primary_md.write_text(
             serialize_document(meta, email_full_text, extra_frontmatter={"original_path": str(email_path.resolve())}),
             encoding="utf-8",
+            errors="replace",
         )
 
         # 2. Extract each attachment and convert
@@ -672,6 +673,7 @@ class DirectoryConverter:
         primary_md.write_text(
             serialize_document(meta, full_text, extra_frontmatter={"original_path": str(msg_path.resolve())}),
             encoding="utf-8",
+            errors="replace",
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:

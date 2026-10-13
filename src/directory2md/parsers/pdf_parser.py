@@ -42,10 +42,11 @@ class PDFParser(BaseParser):
             for idx, page in enumerate(reader.pages, start=1):
                 page_text = page.extract_text()
                 if page_text and page_text.strip():
+                    cleaned_text = page_text.strip().encode("utf-8", errors="replace").decode("utf-8")
                     if total_pages > 1:
-                        text_parts.append(f"## Page {idx}\n\n{page_text.strip()}")
+                        text_parts.append(f"## Page {idx}\n\n{cleaned_text}")
                     else:
-                        text_parts.append(page_text.strip())
+                        text_parts.append(cleaned_text)
         except Exception as e:
             text_parts.append(f"[Error reading PDF: {e}]")
 

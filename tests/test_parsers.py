@@ -220,3 +220,50 @@ def test_html_without_embedded_images(tmp_path: Path):
     assert "# Plain Webpage" in single_file.read_text(encoding="utf-8")
 
 
+def test_pdf_and_document_surrogate_character_handling(tmp_path: Path):
+    from unittest.mock import MagicMock, patch
+    from directory2md.converter import convert_directory
+    from directory2md.markdown_utils import serialize_document, validate_markdown
+    from directory2md.models import DocumentMetadata
+    from directory2md.parsers.pdf_parser import PDFParser
+
+    # 1. serialize_document and validate_markdown handle lone surrogates without crash
+    meta = DocumentMetadata(filepath="/dummy/test.pdf", filename="test.pdf")
+    surrogate_text = "Text with lone surrogate \ud800 character from corrupted PDF font."
+    serialized = serialize_document(meta, surrogate_text)
+    # Must encode cleanly to UTF-8 without raising UnicodeEncodeError
+    encoded_bytes = serialized.encode("utf-8")
+    assert b"Text with lone surrogate" in encoded_bytes
+    assert validate_markdown(surrogate_text)
+
+    # 2. PDFParser cleans lone surrogates
+    dummy_pdf = tmp_path / "surrogate.pdf"
+    dummy_pdf.write_bytes(b"%PDF-1.4 ...")
+
+    mock_page = MagicMock()
+    mock_page.extract_text.return_value = "Page text with \ud800 lone surrogate."
+    mock_reader = MagicMock()
+    mock_reader.pages = [mock_page]
+
+    with patch("pypdf.PdfReader", return_value=mock_reader):
+        pdf_parser = PDFParser()
+        meta_pdf, extracted_pdf = pdf_parser.parse(dummy_pdf)
+        assert "\ud800" not in extracted_pdf
+        assert "Page text with" in extracted_pdf
+
+    # 3. Full directory conversion handles surrogates without raising UnicodeEncodeError
+    src_dir = tmp_path / "pdf_in"
+    src_dir.mkdir()
+    (src_dir / "bad_font.pdf").write_bytes(b"%PDF-1.4 ...")
+    dst_dir = tmp_path / "pdf_out"
+
+    with patch("pypdf.PdfReader", return_value=mock_reader):
+        convert_directory(src_dir, dst_dir)
+
+    out_file = dst_dir / "bad_font.pdf.directory2md.md"
+    assert out_file.exists()
+    content = out_file.read_text(encoding="utf-8")
+    assert "Page text with" in content
+
+
+

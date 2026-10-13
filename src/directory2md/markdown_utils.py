@@ -15,6 +15,18 @@ from directory2md.models import DocumentMetadata
 md_parser = MarkdownIt("commonmark", {"breaks": True, "html": True})
 
 
+def sanitize_unicode(text: str) -> str:
+    """Sanitize lone surrogates or unencodable characters for safe UTF-8 handling.
+
+    PDFs with corrupted font encodings or raw binary extracts may contain unpaired
+    Unicode surrogate code points (\\ud800-\\udfff), which fail standard UTF-8 encoding.
+    This helper replaces them with standard replacement characters.
+    """
+    if not text:
+        return ""
+    return text.encode("utf-8", errors="replace").decode("utf-8")
+
+
 def validate_markdown(text: str) -> bool:
     """Validate that text parses properly with markdown-it-py.
 
@@ -25,7 +37,8 @@ def validate_markdown(text: str) -> bool:
         True if parsed successfully.
     """
     try:
-        tokens = md_parser.parse(text)
+        sanitized = sanitize_unicode(text)
+        tokens = md_parser.parse(sanitized)
         return isinstance(tokens, list)
     except Exception:
         return False
@@ -41,12 +54,13 @@ def extract_title_from_markdown(text: str) -> Optional[str]:
         Heading text or None.
     """
     try:
-        tokens = md_parser.parse(text)
+        sanitized = sanitize_unicode(text)
+        tokens = md_parser.parse(sanitized)
         for i, token in enumerate(tokens):
             if token.type == "heading_open" and token.tag in ("h1", "h2") and i + 1 < len(tokens):
-                content = tokens[i + 1].content.strip()
+                content = token.content if hasattr(token, "content") and token.content else tokens[i + 1].content.strip()
                 if content:
-                    return content
+                    return sanitize_unicode(content)
     except Exception:
         pass
     return None
@@ -75,17 +89,24 @@ def serialize_document(
     if extra_frontmatter:
         fm_data.update(extra_frontmatter)
 
-    # Clean None values from frontmatter
-    fm_data = {k: v for k, v in fm_data.items() if v is not None}
+    # Clean None values and sanitize string fields in frontmatter
+    cleaned_fm: Dict[str, Any] = {}
+    for k, v in fm_data.items():
+        if v is None:
+            continue
+        if isinstance(v, str):
+            cleaned_fm[k] = sanitize_unicode(v)
+        else:
+            cleaned_fm[k] = v
 
     yaml_header = yaml.dump(
-        fm_data,
+        cleaned_fm,
         sort_keys=False,
         allow_unicode=True,
         default_flow_style=False,
     ).strip()
 
-    body = markdown_content.strip()
+    body = sanitize_unicode(markdown_content).strip()
     return f"---\n{yaml_header}\n---\n\n{body}\n"
 
 
