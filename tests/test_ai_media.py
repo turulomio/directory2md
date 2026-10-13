@@ -105,7 +105,7 @@ def test_ia_frontmatter_attribute_default_false(tmp_path: Path):
     (src / "document.txt").write_text("Regular non-AI document")
 
     convert_directory(src, dst)
-    dst_file = dst / "document.txt.md"
+    dst_file = dst / "document.txt.directory2md.md"
     assert dst_file.exists()
 
     fm, _ = parse_frontmatter(dst_file.read_text(encoding="utf-8"))

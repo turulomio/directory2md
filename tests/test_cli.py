@@ -35,7 +35,7 @@ def test_cli_execution(tmp_path: Path, capsys):
     captured2 = capsys.readouterr()
     assert "Starting directory2md:" in captured2.out
     assert "Conversion finished:" in captured2.out
-    assert (dst / "test.txt.md").exists()
+    assert (dst / "test.txt.directory2md.md").exists()
 
 
 def test_cli_nonexistent_source(tmp_path: Path, capsys):
@@ -64,7 +64,7 @@ def test_cli_default_quiet_and_summary(tmp_path: Path, capsys):
     captured = capsys.readouterr()
     assert "Starting directory2md:" not in captured.out
     assert "Conversion finished:" in captured.out
-    assert (dst / "test.txt.md").exists()
+    assert (dst / "test.txt.directory2md.md").exists()
 
 
 def test_cli_destination_inside_source(tmp_path: Path, capsys):
@@ -97,8 +97,8 @@ def test_cli_force_targeted(tmp_path: Path, capsys):
     assert code == 0
     captured = capsys.readouterr()
     assert "Mode:        FORCE (target: 'subfolder')" in captured.out
-    assert (dst / "subfolder" / "doc.txt.md").exists()
-    assert not (dst / "other.txt.md").exists()
+    assert (dst / "subfolder" / "doc.txt.directory2md.md").exists()
+    assert not (dst / "other.txt.directory2md.md").exists()
 
 
 def test_cli_updates_old_config_keys(tmp_path: Path, capsys):

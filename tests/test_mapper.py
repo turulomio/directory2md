@@ -24,7 +24,7 @@ def test_mapper_normal_files(tmp_path: Path):
 
     # Forward mapping
     md_p = get_md_path(f1, src_dir, dst_dir)
-    assert md_p == dst_dir / "docs" / "finance" / "report.pdf.md"
+    assert md_p == dst_dir / "docs" / "finance" / "report.pdf.directory2md.md"
 
     # Reverse mapping
     orig_p = get_original_path(md_p, src_dir, dst_dir)
@@ -50,18 +50,18 @@ def test_mapper_archive_container(tmp_path: Path):
 
     # Forward mapping to container directory
     md_container = get_md_path(archive_file, src_dir, dst_dir)
-    assert md_container == dst_dir / "archives" / "bundle.zip"
+    assert md_container == dst_dir / "archives" / "bundle.zip.directory2md"
 
     # Forward mapping to container primary file
     md_primary = get_md_path(archive_file, src_dir, dst_dir, primary_file=True)
-    assert md_primary == dst_dir / "archives" / "bundle.zip" / "bundle.zip.md"
+    assert md_primary == dst_dir / "archives" / "bundle.zip.directory2md" / "bundle.zip.directory2md.md"
 
     # Reverse mapping from primary file
     orig_from_primary = get_original_path(md_primary, src_dir, dst_dir)
     assert orig_from_primary == archive_file
 
     # Reverse mapping from inner member
-    member_md = dst_dir / "archives" / "bundle.zip" / "inner" / "file.txt.md"
+    member_md = dst_dir / "archives" / "bundle.zip.directory2md" / "inner" / "file.txt.directory2md.md"
     orig_from_member = get_original_path(member_md, src_dir, dst_dir)
     assert orig_from_member == archive_file
 
@@ -70,7 +70,7 @@ def test_mapper_archive_container(tmp_path: Path):
     assert details.original_path == archive_file
     assert details.is_container_member
     assert details.container_original_path == archive_file
-    assert details.member_subpath == "inner/file.txt.md"
+    assert details.member_subpath == "inner/file.txt.directory2md.md"
 
 
 def test_mapper_tar_gz_container(tmp_path: Path):
@@ -83,9 +83,9 @@ def test_mapper_tar_gz_container(tmp_path: Path):
     tar_file.write_bytes(b"dummy")
 
     md_dir = get_md_path(tar_file, src_dir, dst_dir)
-    assert md_dir == dst_dir / "data.tar.gz"
+    assert md_dir == dst_dir / "data.tar.gz.directory2md"
 
-    member_path = dst_dir / "data.tar.gz" / "nested" / "script.py.md"
+    member_path = dst_dir / "data.tar.gz.directory2md" / "nested" / "script.py.directory2md.md"
     orig = get_original_path(member_path, src_dir, dst_dir)
     assert orig == tar_file
 

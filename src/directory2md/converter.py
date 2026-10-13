@@ -18,6 +18,7 @@ from typing import Callable, List, Optional, Tuple
 import zipfile
 
 from directory2md.config import Config
+from directory2md.mapper import CONTAINER_SUFFIX, MD_SUFFIX
 from directory2md.markdown_utils import (
     extract_title_from_markdown,
     serialize_document,
@@ -115,7 +116,7 @@ class DirectoryConverter:
 
         # For containers, check the primary markdown summary file inside it
         if is_container:
-            primary_md = dst_target / f"{src_path.name}.md"
+            primary_md = dst_target / f"{src_path.name}{MD_SUFFIX}"
             if not primary_md.exists():
                 return True
             eval_target = primary_md
@@ -267,8 +268,8 @@ class DirectoryConverter:
     ) -> None:
         """Route file processing based on whether it is a container or normal file."""
         if is_container_file(src_file):
-            # Container: directory destination
-            dst_container = dst_root / rel_file
+            # Container: directory destination with .directory2md suffix
+            dst_container = dst_root / f"{rel_file}{CONTAINER_SUFFIX}"
             if not self.should_update(src_file, dst_container, is_container=True):
                 self.log(f"Skipping up-to-date container: {rel_file}")
                 stats.skipped += 1
@@ -284,8 +285,8 @@ class DirectoryConverter:
 
             stats.converted += 1
         else:
-            # Normal file: .md suffix added
-            dst_file = dst_root / f"{rel_file}.md"
+            # Normal file: .directory2md.md suffix added
+            dst_file = dst_root / f"{rel_file}{MD_SUFFIX}"
             if not self.should_update(src_file, dst_file, is_container=False):
                 self.log(f"Skipping up-to-date file: {rel_file}")
                 stats.skipped += 1
@@ -345,8 +346,8 @@ class DirectoryConverter:
         archive_meta.relative_path = str(rel_archive)
         archive_meta.conversion_time = round(time.perf_counter() - start_time, 4)
 
-        # 1. Write archive primary summary file: <archive_name>.md
-        primary_md = dst_container / f"{archive_path.name}.md"
+        # 1. Write archive primary summary file: <archive_name>.directory2md.md
+        primary_md = dst_container / f"{archive_path.name}{MD_SUFFIX}"
         primary_content = serialize_document(
             archive_meta,
             archive_summary,
@@ -393,14 +394,14 @@ class DirectoryConverter:
 
                 if is_container_file(member_extracted_path):
                     # Nested container
-                    member_dst_dir = dst_container / member_rel
+                    member_dst_dir = dst_container / f"{member_rel}{CONTAINER_SUFFIX}"
                     member_dst_dir.mkdir(parents=True, exist_ok=True)
                     if is_archive_file(member_extracted_path):
                         self._convert_archive(member_extracted_path, member_rel, member_dst_dir)
                     elif is_email_file(member_extracted_path):
                         self._convert_email_container(member_extracted_path, member_rel, member_dst_dir)
                 else:
-                    member_dst_file = dst_container / f"{member_rel}.md"
+                    member_dst_file = dst_container / f"{member_rel}{MD_SUFFIX}"
                     member_dst_file.parent.mkdir(parents=True, exist_ok=True)
                     self._convert_single_file(
                         member_extracted_path,
@@ -501,8 +502,8 @@ class DirectoryConverter:
         )
         email_full_text = headers_md + body_text.strip()
 
-        # 1. Write primary email markdown: <email_name>.md
-        primary_md = dst_container / f"{email_path.name}.md"
+        # 1. Write primary email markdown: <email_name>.directory2md.md
+        primary_md = dst_container / f"{email_path.name}{MD_SUFFIX}"
         meta = DocumentMetadata(
             filepath=str(email_path.resolve()),
             relative_path=str(rel_email),
@@ -530,14 +531,14 @@ class DirectoryConverter:
                 temp_file.write_bytes(att_bytes)
 
                 if is_container_file(temp_file):
-                    att_dst_dir = dst_container / att_name
+                    att_dst_dir = dst_container / f"{att_name}{CONTAINER_SUFFIX}"
                     att_dst_dir.mkdir(parents=True, exist_ok=True)
                     if is_archive_file(temp_file):
                         self._convert_archive(temp_file, Path(att_name), att_dst_dir)
                     elif is_email_file(temp_file):
                         self._convert_email_container(temp_file, Path(att_name), att_dst_dir)
                 else:
-                    att_dst_file = dst_container / f"{att_name}.md"
+                    att_dst_file = dst_container / f"{att_name}{MD_SUFFIX}"
                     self._convert_single_file(
                         temp_file,
                         Path(att_name),
@@ -595,7 +596,7 @@ class DirectoryConverter:
         )
         full_text = headers_md + body_text.strip()
 
-        primary_md = dst_container / f"{msg_path.name}.md"
+        primary_md = dst_container / f"{msg_path.name}{MD_SUFFIX}"
         meta = DocumentMetadata(
             filepath=str(msg_path.resolve()),
             relative_path=str(rel_msg),
@@ -622,14 +623,14 @@ class DirectoryConverter:
                 temp_file.write_bytes(att_bytes)
 
                 if is_container_file(temp_file):
-                    att_dst_dir = dst_container / att_name
+                    att_dst_dir = dst_container / f"{att_name}{CONTAINER_SUFFIX}"
                     att_dst_dir.mkdir(parents=True, exist_ok=True)
                     if is_archive_file(temp_file):
                         self._convert_archive(temp_file, Path(att_name), att_dst_dir)
                     elif is_email_file(temp_file):
                         self._convert_email_container(temp_file, Path(att_name), att_dst_dir)
                 else:
-                    att_dst_file = dst_container / f"{att_name}.md"
+                    att_dst_file = dst_container / f"{att_name}{MD_SUFFIX}"
                     self._convert_single_file(
                         temp_file,
                         Path(att_name),

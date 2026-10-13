@@ -6,13 +6,13 @@ A modern, high-performance command-line tool and Python library managed with **u
 
 ## Key Features
 
-- **Mirrored Directory Hierarchy**: Replicates the source directory tree into the target location, appending the `.md` suffix to regular files (e.g., `document.pdf` $\rightarrow$ `document.pdf.md`).
+- **Mirrored Directory Hierarchy**: Replicates the source directory tree into the target location, appending the `.directory2md.md` suffix to regular files (e.g., `document.pdf` $\rightarrow$ `document.pdf.directory2md.md`).
 - **Smart Container Processing**:
-  - Compressed archives (`.zip`, `.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tbz2`) and emails with attachments (`.eml`, `.msg` containing attachments) are created as **directories** rather than single flat files (e.g., `archive.zip/`, `message.eml/`).
+  - Compressed archives (`.zip`, `.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tbz2`) and emails with attachments (`.eml`, `.msg` containing attachments) are created as **directories** ending in `.directory2md` (e.g., `archive.zip.directory2md/`, `message.eml.directory2md/`).
   - Inside each container directory:
-    - A primary summary markdown file is written (e.g., `archive.zip/archive.zip.md` containing the table of contents and metadata, or `message.eml/message.eml.md` containing message headers and body).
-    - All extracted members or attachments are converted recursively into `.md` files (and nested containers become subdirectories).
-  - Emails without attachments are converted directly as single files (`message.eml.md`).
+    - A primary summary markdown file is written (e.g., `archive.zip.directory2md/archive.zip.directory2md.md` containing the table of contents and metadata, or `message.eml.directory2md/message.eml.directory2md.md` containing message headers and body).
+    - All extracted members or attachments are converted recursively into `.directory2md.md` files (and nested containers become subdirectories ending in `.directory2md`).
+  - Emails without attachments are converted directly as single files (`message.eml.directory2md.md`).
 - **Intelligent Incremental Updates**:
   - By default, files are only converted if:
     1. The destination file does not exist.
@@ -243,26 +243,26 @@ print(f"Scanned: {stats.total_scanned}, Converted: {stats.converted}, Skipped: {
 
 # 2. Map original file path -> Markdown path in destination
 pdf_md = get_md_path(src_dir / "report.pdf", src_dir, dst_dir)
-# -> /data/documents_md/report.pdf.md
+# -> /data/documents_md/report.pdf.directory2md.md
 
 zip_dir = get_md_path(src_dir / "archive.zip", src_dir, dst_dir)
-# -> /data/documents_md/archive.zip (directory)
+# -> /data/documents_md/archive.zip.directory2md (directory)
 
 zip_primary = get_md_path(src_dir / "archive.zip", src_dir, dst_dir, primary_file=True)
-# -> /data/documents_md/archive.zip/archive.zip.md
+# -> /data/documents_md/archive.zip.directory2md/archive.zip.directory2md.md
 
 # 3. Map destination Markdown file -> original file path
-orig_pdf = get_original_path(dst_dir / "report.pdf.md", src_dir, dst_dir)
+orig_pdf = get_original_path(dst_dir / "report.pdf.directory2md.md", src_dir, dst_dir)
 # -> /data/documents/report.pdf
 
-orig_zip_member = get_original_path(dst_dir / "archive.zip" / "nested" / "notes.txt.md", src_dir, dst_dir)
+orig_zip_member = get_original_path(dst_dir / "archive.zip.directory2md" / "nested" / "notes.txt.directory2md.md", src_dir, dst_dir)
 # -> /data/documents/archive.zip
 
 # 4. Resolve full mapping details
-details = resolve_mapping_details(dst_dir / "archive.zip" / "nested" / "notes.txt.md", src_dir, dst_dir)
+details = resolve_mapping_details(dst_dir / "archive.zip.directory2md" / "nested" / "notes.txt.directory2md.md", src_dir, dst_dir)
 print(details.is_container_member)        # True
 print(details.container_original_path)   # Path("/data/documents/archive.zip")
-print(details.member_subpath)            # "nested/notes.txt.md"
+print(details.member_subpath)            # "nested/notes.txt.directory2md.md"
 ```
 
 ---

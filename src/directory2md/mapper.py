@@ -10,6 +10,9 @@ from directory2md.markdown_utils import parse_frontmatter
 from directory2md.parsers import is_archive_file, is_container_file, ARCHIVE_EXTENSIONS
 
 
+MD_SUFFIX = ".directory2md.md"
+CONTAINER_SUFFIX = ".directory2md"
+
 CONTAINER_EXT_PARTS = (
     ".tar.gz",
     ".tar.bz2",
@@ -42,16 +45,16 @@ def get_md_path(
 ) -> Path:
     """Calculate destination markdown path corresponding to an original file.
 
-    For normal files, appends '.md' (e.g. 'doc.pdf' -> 'doc.pdf.md').
+    For normal files, appends '.directory2md.md' (e.g. 'doc.pdf' -> 'doc.pdf.directory2md.md').
     For containers (archives, or emails with attachments), returns the container directory
-    (e.g. 'archive.zip' -> 'archive.zip/'), or if primary_file=True, the container's
-    main summary markdown file ('archive.zip/archive.zip.md').
+    with '.directory2md' suffix (e.g. 'archive.zip' -> 'archive.zip.directory2md/'), or if primary_file=True,
+    the container's main summary markdown file ('archive.zip.directory2md/archive.zip.directory2md.md').
 
     Args:
         original_path: Path to the original file.
         src_dir: Root directory of source files (optional).
         dst_dir: Root directory of destination files (optional).
-        primary_file: If True and target is a container, return the primary .md file inside it.
+        primary_file: If True and target is a container, return the primary .directory2md.md file inside it.
 
     Returns:
         Corresponding destination Path.
@@ -80,15 +83,16 @@ def get_md_path(
     if dst_dir is not None:
         dst = Path(dst_dir)
         if is_container:
-            container_dir = dst / rel
-            return container_dir / f"{rel.name}.md" if primary_file else container_dir
+            container_dir = dst / f"{rel}{CONTAINER_SUFFIX}"
+            return container_dir / f"{rel.name}{MD_SUFFIX}" if primary_file else container_dir
         else:
-            return dst / f"{rel}.md"
+            return dst / f"{rel}{MD_SUFFIX}"
     else:
         if is_container:
-            return rel / f"{rel.name}.md" if primary_file else rel
+            container_dir = Path(f"{rel}{CONTAINER_SUFFIX}")
+            return container_dir / f"{rel.name}{MD_SUFFIX}" if primary_file else container_dir
         else:
-            return Path(f"{rel}.md")
+            return Path(f"{rel}{MD_SUFFIX}")
 
 
 def get_original_path(
@@ -151,23 +155,32 @@ def get_original_path(
     container_index = -1
     for idx, part in enumerate(parts):
         part_lower = part.lower()
+        if part_lower.endswith(CONTAINER_SUFFIX):
+            container_index = idx
+            break
         if any(part_lower.endswith(ext) for ext in CONTAINER_EXT_PARTS):
             # Check if this part is an archive or email directory
-            # If it is the last part and ends with .md, it's a file, not a container directory
-            if idx == len(parts) - 1 and part_lower.endswith(".md"):
-                # E.g. 'foo.zip.md' or 'file.txt.md'
+            # If it is the last part and ends with .directory2md.md or .md, it's a file, not a container directory
+            if idx == len(parts) - 1 and (part_lower.endswith(MD_SUFFIX) or part_lower.endswith(".md")):
                 continue
             container_index = idx
             break
 
     if container_index >= 0:
         # The path is inside or is the container directory
-        container_rel = Path(*parts[: container_index + 1])
+        container_part = parts[container_index]
+        if container_part.endswith(CONTAINER_SUFFIX):
+            raw_container_part = container_part[: -len(CONTAINER_SUFFIX)]
+        else:
+            raw_container_part = container_part
+        container_rel = Path(*parts[:container_index], raw_container_part)
         return Path(src_dir) / container_rel if src_dir else container_rel
 
-    # Normal file: strip trailing '.md'
+    # Normal file: strip trailing '.directory2md.md' or legacy '.md'
     str_rel = str(rel)
-    if str_rel.endswith(".md"):
+    if str_rel.endswith(MD_SUFFIX):
+        orig_rel_str = str_rel[: -len(MD_SUFFIX)]
+    elif str_rel.endswith(".md"):
         orig_rel_str = str_rel[:-3]
     else:
         orig_rel_str = str_rel
@@ -207,14 +220,23 @@ def resolve_mapping_details(
     container_idx = -1
     for idx, part in enumerate(parts):
         part_lower = part.lower()
+        if part_lower.endswith(CONTAINER_SUFFIX):
+            container_idx = idx
+            break
         if any(part_lower.endswith(ext) for ext in CONTAINER_EXT_PARTS):
-            if idx == len(parts) - 1 and part_lower.endswith(".md"):
+            if idx == len(parts) - 1 and (part_lower.endswith(MD_SUFFIX) or part_lower.endswith(".md")):
                 continue
             container_idx = idx
             break
 
     if container_idx >= 0:
-        container_rel = Path(*parts[: container_idx + 1])
+        container_part = parts[container_idx]
+        raw_container_part = (
+            container_part[: -len(CONTAINER_SUFFIX)]
+            if container_part.endswith(CONTAINER_SUFFIX)
+            else container_part
+        )
+        container_rel = Path(*parts[:container_idx], raw_container_part)
         container_orig = src / container_rel
         is_member = len(parts) > container_idx + 1
         member_subpath = "/".join(parts[container_idx + 1 :]) if is_member else None

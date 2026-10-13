@@ -10,16 +10,16 @@ This document outlines the architecture, conventions, workflows, and lessons lea
 
 ### Key Transformation Rules
 1. **Regular Files**:
-   - The `.md` suffix is appended to the original filename: `report.pdf` $\rightarrow$ `report.pdf.md`.
+   - The `.directory2md.md` suffix is appended to the original filename: `report.pdf` $\rightarrow$ `report.pdf.directory2md.md`.
 2. **Container Files** (`.zip`, `.tar.gz`, `.tar`, `.tgz`, `.tbz2`, and `.eml`/`.msg` containing attachments):
-   - A destination **directory** matching the container name is created instead of a single `.md` file (e.g. `archive.zip/`, `message.eml/`).
+   - A destination **directory** matching the container name with `.directory2md` suffix is created (e.g. `archive.zip.directory2md/`, `message.eml.directory2md/`).
    - Inside the container directory:
-     - The container's primary Markdown summary is created: `<container_name>.md` (e.g. `archive.zip.md` containing the table of contents and stats, or `message.eml.md` with message headers and body).
-     - All contained members or attachments are extracted and converted recursively to `.md` (nested containers create subdirectories).
+     - The container's primary Markdown summary is created: `<container_name>.directory2md.md` (e.g. `archive.zip.directory2md.md` containing the table of contents and stats, or `message.eml.directory2md.md` with message headers and body).
+     - All contained members or attachments are extracted and converted recursively with `.directory2md.md` (nested containers create subdirectories ending in `.directory2md`).
 3. **Emails Without Attachments**:
-   - Plain `.eml` or `.msg` files with no attachments are treated as regular files and converted directly to `<name>.eml.md` without creating a container directory.
+   - Plain `.eml` or `.msg` files with no attachments are treated as regular files and converted directly to `<name>.eml.directory2md.md` without creating a container directory.
 4. **YAML Frontmatter Headers**:
-   - Every generated `.md` file includes frontmatter containing:
+   - Every generated `.directory2md.md` file includes frontmatter containing:
      - `ia`: Boolean (`true`/`false`) flag indicating whether the output was generated with AI.
      - `original_path`: Absolute path to original file.
      - `filename`: Base filename.
@@ -47,7 +47,7 @@ The project adheres to the standard **`src` layout** for full compatibility with
 directory2md/
 ├── src/
 │   └── directory2md/
-│       ├── __init__.py           # Public API and exports
+│       ├── __init__.py           # Public API and exports (including CONTAINER_SUFFIX, MD_SUFFIX)
 │       ├── ai_client.py          # Ollama REST API client, keyframe extraction & Whisper
 │       ├── cli.py                # Command-line interface with interactive progress bar
 │       ├── config.py             # Config & AIConfig models and YAML configuration loader
@@ -80,11 +80,11 @@ directory2md/
 ## 3. Bidirectional Mapping Utilities (`mapper.py`)
 
 - **`get_md_path(original_path, src_dir=None, dst_dir=None, primary_file=False) -> Path`**:
-  Calculates the destination path. If the target is a container, returns the container directory (or primary summary `.md` if `primary_file=True`).
+  Calculates the destination path. If the target is a container, returns the container directory `<name>.directory2md` (or primary summary `<name>.directory2md.md` if `primary_file=True`). For regular files returns `<name>.directory2md.md`.
 - **`get_original_path(md_path, src_dir=None, dst_dir=None) -> Path`**:
   Resolves the original source file.
-  - If the `.md` file exists on disk and contains `original_path` in YAML frontmatter, reads it directly.
-  - For abstract paths, detects whether the file is nested inside a container folder (`.zip`, `.tar.gz`, etc.) or simply strips `.md`.
+  - If the markdown file exists on disk and contains `original_path` in YAML frontmatter, reads it directly.
+  - For abstract paths, detects container directories (`.directory2md`) or strips `.directory2md.md` / `.md`.
 - **`resolve_mapping_details(md_path, src_dir, dst_dir) -> PathMapping`**:
   Returns structured information indicating whether the target is an internal container member, providing the container source path and inner subpath.
 

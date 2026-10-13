@@ -171,13 +171,19 @@ def transcribe_audio_whisper(audio_path: Path, ai_config: Optional[AIConfig] = N
     Returns:
         Transcribed text or None.
     """
-    if not shutil.which("whisper"):
+    whisper_cmd = shutil.which("whisper")
+    if not whisper_cmd:
+        venv_whisper = Path(sys.prefix) / "bin" / "whisper"
+        if venv_whisper.exists():
+            whisper_cmd = str(venv_whisper)
+
+    if not whisper_cmd:
         return None
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
             cmd = [
-                "whisper",
+                whisper_cmd,
                 str(audio_path),
                 "--output_dir",
                 tmpdir,
@@ -194,6 +200,6 @@ def transcribe_audio_whisper(audio_path: Path, ai_config: Optional[AIConfig] = N
             if txt_files:
                 return txt_files[0].read_text(encoding="utf-8").strip()
     except Exception as exc:
-        logger.debug("Whisper transcription failed for '%s': %s", audio_path, exc)
+        logger.warning("Whisper transcription failed for '%s': %s", audio_path, exc)
 
     return None

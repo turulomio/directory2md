@@ -12,6 +12,8 @@ from directory2md.config import (
 )
 from directory2md.converter import ConversionStats, DirectoryConverter, convert_directory
 from directory2md.mapper import (
+    CONTAINER_SUFFIX,
+    MD_SUFFIX,
     PathMapping,
     get_md_path,
     get_original_path,
@@ -22,9 +24,11 @@ __version__ = "0.1.0"
 
 __all__ = [
     "AIConfig",
+    "CONTAINER_SUFFIX",
     "Config",
     "ConversionStats",
     "DirectoryConverter",
+    "MD_SUFFIX",
     "PathMapping",
     "convert_directory",
     "create_default_config_file",

@@ -25,12 +25,12 @@ def test_zip_container_conversion(tmp_path: Path):
     stats = convert_directory(src, dst)
     assert stats.converted == 1
 
-    # Destination should be a directory named 'bundle.zip'
-    container_dir = dst / "bundle.zip"
+    # Destination should be a directory named 'bundle.zip.directory2md'
+    container_dir = dst / "bundle.zip.directory2md"
     assert container_dir.is_dir()
 
     # Primary summary file
-    primary_md = container_dir / "bundle.zip.md"
+    primary_md = container_dir / "bundle.zip.directory2md.md"
     assert primary_md.is_file()
     fm, body = parse_frontmatter(primary_md.read_text(encoding="utf-8"))
     assert fm["filename"] == "bundle.zip"
@@ -38,15 +38,15 @@ def test_zip_container_conversion(tmp_path: Path):
     assert "conversion_time" in fm
     assert isinstance(fm["conversion_time"], (int, float))
 
-    # Children files converted with .md
-    child1 = container_dir / "notes.txt.md"
+    # Children files converted with .directory2md.md
+    child1 = container_dir / "notes.txt.directory2md.md"
     assert child1.is_file()
     fm1, body1 = parse_frontmatter(child1.read_text(encoding="utf-8"))
     assert "Important notes inside zip" in body1
     assert fm1["archive_member"] == "notes.txt"
     assert "conversion_time" in fm1
 
-    child2 = container_dir / "sub" / "data.csv.md"
+    child2 = container_dir / "sub" / "data.csv.directory2md.md"
     assert child2.is_file()
     fm2, body2 = parse_frontmatter(child2.read_text(encoding="utf-8"))
     assert "col1" in body2
@@ -68,13 +68,13 @@ def test_tar_gz_container_conversion(tmp_path: Path):
     stats = convert_directory(src, dst)
     assert stats.converted == 1
 
-    container_dir = dst / "archive.tar.gz"
+    container_dir = dst / "archive.tar.gz.directory2md"
     assert container_dir.is_dir()
 
-    primary_md = container_dir / "archive.tar.gz.md"
+    primary_md = container_dir / "archive.tar.gz.directory2md.md"
     assert primary_md.is_file()
 
-    child = container_dir / "greeting.txt.md"
+    child = container_dir / "greeting.txt.directory2md.md"
     assert child.is_file()
     _, body = parse_frontmatter(child.read_text(encoding="utf-8"))
     assert "Hello from tar file" in body
@@ -98,10 +98,10 @@ def test_eml_without_attachments_is_single_file(tmp_path: Path):
 
     convert_directory(src, dst)
 
-    # Should NOT be a directory; should be a single file with .md suffix added
-    dst_file = dst / "simple.eml.md"
+    # Should NOT be a directory; should be a single file with .directory2md.md suffix added
+    dst_file = dst / "simple.eml.directory2md.md"
     assert dst_file.is_file()
-    assert not (dst / "simple.eml").is_dir()
+    assert not (dst / "simple.eml.directory2md").is_dir()
 
     fm, body = parse_frontmatter(dst_file.read_text(encoding="utf-8"))
     assert fm["filename"] == "simple.eml"
@@ -132,19 +132,19 @@ def test_eml_with_attachments_is_container_directory(tmp_path: Path):
 
     convert_directory(src, dst)
 
-    # Should be a container directory named 'with_attachment.eml'
-    container_dir = dst / "with_attachment.eml"
+    # Should be a container directory named 'with_attachment.eml.directory2md'
+    container_dir = dst / "with_attachment.eml.directory2md"
     assert container_dir.is_dir()
 
     # Primary email markdown
-    primary_md = container_dir / "with_attachment.eml.md"
+    primary_md = container_dir / "with_attachment.eml.directory2md.md"
     assert primary_md.is_file()
     fm, body = parse_frontmatter(primary_md.read_text(encoding="utf-8"))
     assert "Check the attached report." in body
     assert "invoice.txt" in fm["contained_files"]
 
     # Attachment converted to markdown
-    att_md = container_dir / "invoice.txt.md"
+    att_md = container_dir / "invoice.txt.directory2md.md"
     assert att_md.is_file()
     fm_att, body_att = parse_frontmatter(att_md.read_text(encoding="utf-8"))
     assert "Invoice content details" in body_att

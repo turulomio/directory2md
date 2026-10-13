@@ -31,10 +31,10 @@ def test_convert_directory_basic(tmp_path: Path):
     assert stats.skipped == 0
     assert not stats.has_errors
 
-    # Check that destinations exist with .md suffix added
-    dst_f1 = dst / "sub1" / "hello.txt.md"
-    dst_f2 = dst / "notes.md.md"
-    dst_f3 = dst / "data.csv.md"
+    # Check that destinations exist with .directory2md.md suffix added
+    dst_f1 = dst / "sub1" / "hello.txt.directory2md.md"
+    dst_f2 = dst / "notes.md.directory2md.md"
+    dst_f3 = dst / "data.csv.directory2md.md"
 
     assert dst_f1.exists()
     assert dst_f2.exists()
@@ -80,7 +80,7 @@ def test_incremental_update_when_source_modified(tmp_path: Path):
 
     # Run 1
     convert_directory(src, dst)
-    dst_file = dst / "doc.txt.md"
+    dst_file = dst / "doc.txt.directory2md.md"
 
     # Set dst_file mtime back 10 seconds
     past_mtime = (datetime.now() - timedelta(seconds=10)).timestamp()
@@ -107,7 +107,7 @@ def test_incremental_update_when_older_than_threshold(tmp_path: Path):
     f1.write_text("Untouched content")
 
     convert_directory(src, dst)
-    dst_file = dst / "doc.txt.md"
+    dst_file = dst / "doc.txt.directory2md.md"
 
     # Set dst_file to 200 days old (default threshold is 180)
     old_time = (datetime.now() - timedelta(days=200)).timestamp()
@@ -195,17 +195,17 @@ def test_force_with_targeted_path_or_file(tmp_path: Path):
     stats_file = convert_directory(src, dst, force="root1.txt")
     assert stats_file.total_scanned == 1
     assert stats_file.converted == 1
-    assert (dst / "root1.txt.md").exists()
-    assert not (dst / "root2.txt.md").exists()
+    assert (dst / "root1.txt.directory2md.md").exists()
+    assert not (dst / "root2.txt.directory2md.md").exists()
 
     # 2. Targeted directory (recursive)
     stats_dir = convert_directory(src, dst, force="subfolder")
     assert stats_dir.total_scanned == 3  # sub1, sub2, nested1
     assert stats_dir.converted == 3
-    assert (dst / "subfolder" / "sub1.txt.md").exists()
-    assert (dst / "subfolder" / "sub2.txt.md").exists()
-    assert (dst / "subfolder" / "nested" / "nested1.txt.md").exists()
-    assert not (dst / "root2.txt.md").exists()
+    assert (dst / "subfolder" / "sub1.txt.directory2md.md").exists()
+    assert (dst / "subfolder" / "sub2.txt.directory2md.md").exists()
+    assert (dst / "subfolder" / "nested" / "nested1.txt.directory2md.md").exists()
+    assert not (dst / "root2.txt.directory2md.md").exists()
 
     # 3. Nonexistent target raises ValueError
     with pytest.raises(ValueError, match="does not exist in source directory"):
