@@ -25,16 +25,16 @@ def test_config_create_and_load(tmp_path: Path):
     config = load_config(cfg_file)
     assert config.days == 180
     assert not config.ai.enabled
-    assert config.ai.language == "es"
+    assert config.ai.language == "en"
     assert config.ai.ollama_url == "http://localhost:11434"
     assert config.ai.vision_model == ""
 
 
 def test_config_custom_language(tmp_path: Path):
     cfg_file = tmp_path / "directory2md.yaml"
-    cfg_file.write_text("ai:\n  language: 'en'\n", encoding="utf-8")
+    cfg_file.write_text("ai:\n  language: 'es'\n", encoding="utf-8")
     config = load_config(cfg_file)
-    assert config.ai.language == "en"
+    assert config.ai.language == "es"
 
 
 def test_update_missing_config_keys_in_old_config(tmp_path: Path):
@@ -62,7 +62,7 @@ ai:
     assert "# Old configuration file" in updated_text  # Comment preserved
     assert "days: 90" in updated_text  # Custom value preserved
     assert 'vision_model: "llama3.2-vision"' in updated_text  # Custom value preserved
-    assert 'language: "es"' in updated_text  # Default missing key added
+    assert 'language: "en"' in updated_text  # Default missing key added
 
     # Load with load_config
     config = load_config(cfg_file)
@@ -70,7 +70,7 @@ ai:
     assert config.force is False
     assert config.verbose is False
     assert config.ai.enabled is True
-    assert config.ai.language == "es"
+    assert config.ai.language == "en"
     assert config.ai.vision_model == "llama3.2-vision"
 
     # Second run should detect no missing keys
@@ -92,7 +92,7 @@ def test_update_missing_config_keys_completely_missing_ai(tmp_path: Path):
     assert config.days == 45
     assert config.force is True
     assert config.verbose is False
-    assert config.ai.language == "es"
+    assert config.ai.language == "en"
     assert config.ai.enabled is False
 
 

@@ -115,7 +115,7 @@ verbose: false            # Show detailed progress for each file
 # AI & Ollama settings
 ai:
   enabled: false          # Enable AI processing (OCR, descriptions for images, audio, video)
-  language: "es"          # Language of AI results, summaries, and descriptions (e.g., "es", "en", "fr")
+  language: "en"          # Language of AI results, summaries, and descriptions (e.g., "en", "es", "fr")
   ollama_url: "http://localhost:11434"
   vision_model: ""        # e.g., "llava" or "llama3.2-vision"
   audio_model: ""         # e.g., "whisper"

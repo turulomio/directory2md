@@ -16,7 +16,7 @@ class AIConfig:
     """Configuration for AI / Ollama processing."""
 
     enabled: bool = False
-    language: str = "es"
+    language: str = "en"
     ollama_url: str = "http://localhost:11434"
     vision_model: str = ""
     audio_model: str = ""
@@ -59,7 +59,7 @@ verbose: false            # Show detailed progress for each file
 # AI & Ollama settings
 ai:
   enabled: false          # Set to true to enable AI processing (OCR, descriptions for images, audio, video)
-  language: "es"          # Language of AI results, summaries, and descriptions (e.g., "es", "en", "fr")
+  language: "en"          # Language of AI results, summaries, and descriptions (e.g., "en", "es", "fr")
   ollama_url: "http://localhost:11434"  # Default Ollama endpoint (localhost:11434)
   
   # Models (configure freely according to the models you have in Ollama)
@@ -105,7 +105,7 @@ ROOT_TEMPLATES = {
 
 AI_TEMPLATES = {
     "enabled": '  enabled: false          # Set to true to enable AI processing (OCR, descriptions for images, audio, video)\n',
-    "language": '  language: "es"          # Language of AI results, summaries, and descriptions (e.g., "es", "en", "fr")\n',
+    "language": '  language: "en"          # Language of AI results, summaries, and descriptions (e.g., "en", "es", "fr")\n',
     "ollama_url": '  ollama_url: "http://localhost:11434"  # Default Ollama endpoint (localhost:11434)\n',
     "vision_model": '  vision_model: ""        # e.g., "llava" or "llama3.2-vision"\n',
     "audio_model": '  audio_model: ""         # e.g., "whisper"\n',
@@ -278,7 +278,7 @@ def load_config(config_file: Path, update_if_missing: bool = True) -> Config:
 
         ai_config = AIConfig(
             enabled=bool(ai_data.get("enabled", False)),
-            language=str(ai_data.get("language", "es")),
+            language=str(ai_data.get("language", "en")),
             ollama_url=str(ai_data.get("ollama_url", "http://localhost:11434")),
             vision_model=str(ai_data.get("vision_model", "")),
             audio_model=str(ai_data.get("audio_model", "")),

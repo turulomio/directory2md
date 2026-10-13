@@ -120,7 +120,7 @@ def test_cli_updates_old_config_keys(tmp_path: Path, capsys):
     # Config file should now contain the missing keys
     config_content = (dst / "directory2md.yaml").read_text(encoding="utf-8")
     assert "days: 120" in config_content
-    assert "language: \"es\"" in config_content
+    assert 'language: "en"' in config_content
 
 
 
