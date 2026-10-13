@@ -63,11 +63,25 @@ ai:
   ollama_url: "http://localhost:11434"  # Default Ollama endpoint (localhost:11434)
   
   # Models (configure according to the models you have in Ollama & Whisper)
-  # vision_model (or video_model) is used for image OCR/description and video keyframe analysis
-  # Examples for vision/video: "llava", "llama3.2-vision", "qwen2.5-vl", "minicpm-v"
-  # Examples for audio: "tiny", "base", "small", "medium", "large-v3"
-  vision_model: ""        # e.g., "llava" or "llama3.2-vision"
-  audio_model: ""         # e.g., "base" or "small" (or empty for default)
+  # vision_model (or video_model) is used for image OCR/description and video keyframe analysis.
+  # Recommended Ollama vision models:
+  #   - "llama3.2-vision:11b" : Meta 11B multimodal model (~7.9 GB download, ~8 GB VRAM). Excellent balance of OCR & description.
+  #   - "llama3.2-vision:90b" : Meta 90B flagship model (~55 GB download, 64+ GB VRAM). Maximum detail & reasoning.
+  #   - "qwen2.5-vl:7b"        : Alibaba Qwen 7B (~4.5 GB download, ~6 GB VRAM). Best-in-class for OCR, tables, and dense documents.
+  #   - "llava:7b"             : LLaVA 7B baseline (~4.7 GB download, ~6 GB VRAM). Fast, widely compatible generalist.
+  #   - "llava:13b"            : LLaVA 13B (~8.0 GB download, ~10 GB VRAM). Higher fidelity than 7B.
+  #   - "minicpm-v:8b"         : MiniCPM-V 8B (~5.5 GB download, ~8 GB VRAM). High efficiency for OCR and multi-frame processing.
+  vision_model: ""        # e.g., "llama3.2-vision:11b" or "qwen2.5-vl:7b"
+  
+  # audio_model: Whisper model size for audio transcription & video speech tracks.
+  # Available sizes & trade-offs:
+  #   - "tiny"     : ~39M params, ~75 MB, ~1 GB VRAM / RAM. ~32x real-time speed. Basic accuracy, fast previews.
+  #   - "base"     : ~74M params, ~142 MB, ~1 GB VRAM / RAM. ~16x real-time speed. Lightweight default.
+  #   - "small"    : ~244M params, ~466 MB, ~2 GB VRAM / RAM. ~6x real-time speed. (Recommended) Best balance of speed & quality.
+  #   - "medium"   : ~769M params, ~1.5 GB, ~5 GB VRAM / RAM. ~2x real-time speed. High multilingual accuracy.
+  #   - "turbo"    : ~809M params, ~1.6 GB, ~6 GB VRAM / RAM. ~8x real-time speed. Near large-v3 accuracy at 8x speed.
+  #   - "large-v3" : ~1550M params, ~3 GB, ~10 GB VRAM / RAM. 1x real-time speed. Maximum accuracy for accents & noise.
+  audio_model: ""         # e.g., "small" or "base" (leave empty for Whisper's default)
   
   # Custom prompts
   prompt_image_ocr: "Extract all readable text from this image verbatim. Do not add conversational filler."

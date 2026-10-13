@@ -118,22 +118,102 @@ verbose: false            # Show detailed progress for each file
 
 # AI & Ollama settings
 ai:
-  enabled: false          # Enable AI processing (OCR, descriptions for images, audio, video)
+  enabled: false          # Set to true to enable AI processing (OCR, descriptions for images, audio, video)
   language: "en"          # Language of AI results, summaries, and descriptions (e.g., "en", "es", "fr")
   ollama_url: "http://localhost:11434"
   
   # Models
-  # vision_model (or video_model): Ollama model used for image OCR/description & video keyframe scene analysis
-  # Examples: "llava", "llama3.2-vision", "qwen2.5-vl", "minicpm-v"
-  vision_model: ""
+  vision_model: ""        # Ollama model for image OCR/descriptions & video keyframe analysis (e.g., "llama3.2-vision:11b")
+  audio_model: ""         # Whisper model size for audio/video speech transcription (e.g., "small", "base")
   
-  # audio_model: Whisper model size used for audio transcription
-  # Examples: "tiny", "base", "small", "medium", "large-v3" (leave "" for Whisper's default)
-  audio_model: ""
+  # Custom prompts
+  prompt_image_ocr: "Extract all readable text from this image verbatim. Do not add conversational filler."
+  prompt_image_description: "Provide a comprehensive and detailed description of the contents and context of this image."
+  prompt_video_summary: "Analyze these extracted video keyframes and summarize the scene, actions, and key visual information."
+  
+  # Extraction options
+  max_video_frames: 3     # Maximum keyframes to sample from a video for AI analysis
+  timeout_seconds: 60     # Request timeout in seconds for Ollama requests
 ```
 
 ---
 
+## AI Configuration and Model Guide
+
+`directory2md` supports local, privacy-first AI enrichment without sending any data to external cloud services. AI processing is split into two specialized engines:
+
+1. **Vision Engine (Ollama)**: Handles optical character recognition (OCR) and scene descriptions for **images** (`.png`, `.jpg`, `.webp`, `.svg`, etc.), as well as visual keyframe analysis for **videos** (`.mp4`, `.mkv`, `.avi`, `.mov`, etc.). Note that raw images are never dumped as Base64 data URIs; instead, clean markdown text summaries and OCR extracts are generated.
+2. **Audio Engine (Whisper)**: Handles speech-to-text transcription with timestamped segments for **audio files** (`.mp3`, `.wav`, `.m4a`, etc.) and the extracted audio tracks of **video files**.
+
+---
+
+### 1. Vision & Video Models (via Ollama)
+
+Vision models are served locally through [Ollama](https://ollama.com). Set `vision_model` (or `video_model`) in `directory2md.yaml` to any vision-capable model pulled in your Ollama instance.
+
+#### Recommended Vision Models & Sizing
+
+| Model Tag | Parameters | Download / Disk Size | Recommended VRAM / RAM | Strengths & Recommendations |
+| :--- | :---: | :---: | :---: | :--- |
+| **`llama3.2-vision:11b`** *(Recommended)* | 11B | ~7.9 GB | ~8 GB VRAM | **Best overall balance.** Meta's flagship open multimodal model. Excellent multilingual text OCR, chart interpretation, and visual scene description. |
+| **`qwen2.5-vl:7b`** | 7B | ~4.5 GB | ~6 GB VRAM | **Best for document OCR.** Alibaba's Qwen2.5-VL excels at reading dense typography, tables, scanned receipts, and multilingual documents. |
+| **`llava:7b`** | 7B | ~4.7 GB | ~6 GB VRAM | **Lightweight baseline.** Standard open-source multimodal model. Fast execution on consumer laptops and entry-level GPUs. |
+| **`llava:13b`** | 13B | ~8.0 GB | ~10 GB VRAM | **Higher visual fidelity.** Noticeably fewer visual hallucinations than the 7B variant; good for detailed diagram descriptions. |
+| **`minicpm-v:8b`** | 8B | ~5.5 GB | ~8 GB VRAM | **Efficient OCR & multi-frame.** Strong document OCR, high image token efficiency, and fast multi-frame keyframe comparison. |
+| **`llama3.2-vision:90b`** | 90B | ~55 GB | 64+ GB VRAM / Unified RAM | **Maximum quality.** For workstation or multi-GPU environments needing high-accuracy document reasoning and nuance. |
+
+#### Setting Up Ollama
+
+1. Install and launch Ollama:
+   ```bash
+   # Start Ollama service (if not running as a system daemon)
+   ollama serve
+   ```
+2. Pull your chosen vision model:
+   ```bash
+   ollama pull llama3.2-vision:11b
+   # or for document-heavy OCR:
+   ollama pull qwen2.5-vl:7b
+   ```
+3. Enable in `directory2md.yaml`:
+   ```yaml
+   ai:
+     enabled: true
+     vision_model: "llama3.2-vision:11b"
+   ```
+
+---
+
+### 2. Audio & Video Transcription Models (via Whisper)
+
+Audio transcription is performed locally using OpenAI's Whisper engine. Set `audio_model` in `directory2md.yaml` to specify the model size according to your hardware budget.
+
+#### Available Whisper Models & Trade-Offs
+
+| Model Size | Parameters | Download Size | VRAM / RAM Req. | Relative Speed | Recommendations & Trade-Offs |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **`tiny`** | 39 M | ~75 MB | ~1 GB | ~32x | Ultra-fast. Suitable for CPU-only systems or quick document previews. May struggle with accents or background noise. |
+| **`base`** | 74 M | ~142 MB | ~1 GB | ~16x | Good default for low-resource environments. Reliable for clean English recordings. |
+| **`small`** *(Recommended)* | 244 M | ~466 MB | ~2 GB | ~6x | **Best balance of speed and accuracy.** Recommended for general desktop/laptop use. Strong multilingual transcription. |
+| **`medium`** | 769 M | ~1.5 GB | ~5 GB | ~2x | High accuracy for technical vocabulary, diverse accents, and non-English recordings. |
+| **`turbo`** | 809 M | ~1.6 GB | ~6 GB | ~8x | **Fast high-accuracy.** Pruned version of Large-v3 providing near large-model accuracy at 8x real-time speed. |
+| **`large-v3`** | 1550 M | ~3.0 GB | ~10 GB | 1x | **State of the art.** Highest transcription accuracy across 100+ languages, resistant to background noise and music. |
+
+#### Setting Up Whisper
+
+1. Install the audio transcription extra dependencies:
+   ```bash
+   uv sync --extra audio
+   ```
+   *(Alternatively, `directory2md` also supports system-installed `whisper` CLI or `whisper.cpp` binaries if present in your `PATH`).*
+2. Configure your desired model size in `directory2md.yaml`:
+   ```yaml
+   ai:
+     enabled: true
+     audio_model: "small"   # or "turbo", "medium", "base"
+   ```
+
+---
 
 ## Python API Usage
 
@@ -196,7 +276,9 @@ print(details.member_subpath)            # "nested/notes.txt.md"
 | **Spreadsheets** (`.csv`, `.tsv`, `.xlsx`, `.ods`) | `SpreadsheetParser` | Markdown tables and formatted cell data. |
 | **OpenDocument** (`.odt`, `.odp`) | `OpenDocumentParser` | Structured text, sections, and slide notes. |
 | **PowerPoint** (`.pptx`, `.potx`, `.ppt`, etc.) | `PPTXParser` | Slide titles, text shapes, notes, and tables. |
-| **Images** (`.png`, `.jpg`, `.webp`, `.svg`, etc.) | `ImageParser` | Embedded base64 Data URI with image dimensions and format info. |
+| **Images** (`.png`, `.jpg`, `.webp`, `.svg`, etc.) | `ImageParser` | Dimensions and metadata; OCR text and visual scene description if AI enabled (no Base64 embedding). |
+| **Audio** (`.mp3`, `.wav`, `.m4a`, `.flac`, `.ogg`) | `MediaParser` | Audio metadata, duration, channels; speech transcription with timestamps if AI enabled. |
+| **Video** (`.mp4`, `.mkv`, `.avi`, `.mov`, `.webm`) | `MediaParser` | Video metadata, resolution, duration; scene keyframe descriptions and transcribed speech if AI enabled. |
 | **Archives** (`.zip`, `.tar`, `.tar.gz`, `.tgz`, `.tbz2`) | `ArchiveParser` | Directory created with table of contents markdown and recursive child files. |
 | **Emails** (`.eml`, `.msg`) | `EmailParser` | Headers, decoded HTML/text body. If attachments present, creates container folder. |
 | **Text & Code** (`.txt`, `.md`, `.json`, `.log`, etc.) | `TextParser` | Multi-encoding text decoding with `markdown-it-py` token analysis. |
